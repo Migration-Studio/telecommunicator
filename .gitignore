@@ -3,3 +3,4 @@
 .vs
 __pycache__
 .pytest_cache
+messenger.db
