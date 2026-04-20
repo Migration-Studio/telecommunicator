@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import sys
+import os
+
+# Ensure the project root is on sys.path so `client.*` imports work
+# regardless of how this file is launched (e.g. `flet run client/main.py`)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import flet
 
 from client.state import AppState

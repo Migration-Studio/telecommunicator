@@ -12,25 +12,36 @@ def room_view(page: flet.Page, state: AppState) -> None:
     if room is None:
         return
 
+    page.bgcolor = "#efeae2"
+
     messages_list = flet.ListView(
         expand=True,
-        spacing=4,
+        spacing=6,
         auto_scroll=True,
     )
 
     message_input = flet.TextField(
-        label="Type a message\u2026",
+        label="Type a message…",
         expand=True,
         multiline=False,
         on_submit=lambda e: page.run_task(_send_message),
+        bgcolor="#ffffff",
+        filled=True,
+        border_color=flet.Colors.TRANSPARENT,
     )
 
     reconnecting_banner = flet.Container(
-        content=flet.Text("Reconnecting\u2026", color=flet.Colors.WHITE, size=13),
-        bgcolor=flet.Colors.ORANGE_700,
+        content=flet.Text(
+            "Reconnecting…",
+            color="#ffffff",
+            size=13,
+            weight=flet.FontWeight.W_500,
+        ),
+        bgcolor="#f57c00",
         padding=flet.padding.symmetric(horizontal=12, vertical=6),
         visible=False,
         border_radius=4,
+        alignment=flet.alignment.center,
     )
 
     _state: dict = {"min_id": None, "loading_older": False, "ws_client": None}
@@ -48,7 +59,9 @@ def room_view(page: flet.Page, state: AppState) -> None:
 
     async def _show_user_profile(username: str) -> None:
         _profile_sheet_content.controls.clear()
-        _profile_sheet_content.controls.append(flet.Text("Loading…", size=14, color=flet.Colors.GREY_500))
+        _profile_sheet_content.controls.append(
+            flet.Text("Loading…", size=14, color="#667781")
+        )
         _profile_sheet.open = True
         page.update()
 
@@ -60,11 +73,27 @@ def room_view(page: flet.Page, state: AppState) -> None:
             _profile_sheet_content.controls += [
                 flet.Row(
                     controls=[
-                        flet.Icon(flet.Icons.ACCOUNT_CIRCLE, size=40, color=flet.Colors.BLUE_400),
+                        flet.Icon(
+                            flet.Icons.ACCOUNT_CIRCLE, size=48, color="#008069"
+                        ),
                         flet.Column(
                             controls=[
-                                flet.Text(data.get("username", ""), size=18, weight=flet.FontWeight.BOLD),
-                                flet.Text(dn, size=13, color=flet.Colors.GREY_600) if dn else flet.Text("No display name", size=13, color=flet.Colors.GREY_400, italic=True),
+                                flet.Text(
+                                    data.get("username", ""),
+                                    size=18,
+                                    weight=flet.FontWeight.BOLD,
+                                    color="#111b21",
+                                ),
+                                flet.Text(
+                                    dn, size=14, color="#667781"
+                                )
+                                if dn
+                                else flet.Text(
+                                    "No display name",
+                                    size=14,
+                                    color="#667781",
+                                    italic=True,
+                                ),
                             ],
                             spacing=2,
                         ),
@@ -73,15 +102,38 @@ def room_view(page: flet.Page, state: AppState) -> None:
                     vertical_alignment=flet.CrossAxisAlignment.CENTER,
                 ),
                 flet.Divider(height=8),
-                # Placeholder rows — easy to extend later
-                flet.Row(controls=[flet.Icon(flet.Icons.BADGE, size=16, color=flet.Colors.GREY_500), flet.Text(f"Username: {data.get('username', '')}", size=13)], spacing=6),
-                flet.Row(controls=[flet.Icon(flet.Icons.LABEL, size=16, color=flet.Colors.GREY_500), flet.Text(f"Display name: {dn or '—'}", size=13)], spacing=6),
-                flet.TextButton("Close", on_click=lambda e: _close_profile_sheet()),
+                flet.Row(
+                    controls=[
+                        flet.Icon(flet.Icons.BADGE, size=18, color="#667781"),
+                        flet.Text(
+                            f"Username: {data.get('username', '')}",
+                            size=14,
+                            color="#111b21",
+                        ),
+                    ],
+                    spacing=8,
+                ),
+                flet.Row(
+                    controls=[
+                        flet.Icon(flet.Icons.LABEL, size=18, color="#667781"),
+                        flet.Text(
+                            f"Display name: {dn or '—'}", size=14, color="#111b21"
+                        ),
+                    ],
+                    spacing=8,
+                ),
+                flet.TextButton(
+                    "Close",
+                    on_click=lambda e: _close_profile_sheet(),
+                    style=flet.ButtonStyle(color="#008069"),
+                ),
             ]
             page.update()
         except Exception as exc:
             _profile_sheet_content.controls.clear()
-            _profile_sheet_content.controls.append(flet.Text(str(exc), color=flet.Colors.RED_400))
+            _profile_sheet_content.controls.append(
+                flet.Text(str(exc), color="#ea4335")
+            )
             page.update()
         finally:
             await client.aclose()
@@ -98,25 +150,67 @@ def room_view(page: flet.Page, state: AppState) -> None:
         ts = ts_raw
         if isinstance(ts_raw, str) and "T" in ts_raw:
             ts = ts_raw.split("T")[1][:5]
-        return flet.Container(
-            content=flet.Row(
+
+        is_me = (
+            state.current_user is not None
+            and author == state.current_user.username
+        )
+        bubble_color = "#d9fdd3" if is_me else "#ffffff"
+        name_color = "#008069"
+
+        bubble = flet.Container(
+            content=flet.Column(
                 controls=[
                     flet.TextButton(
                         display_name,
-                        on_click=lambda e, u=author: page.run_task(_show_user_profile, u),
+                        on_click=lambda e, u=author: page.run_task(
+                            _show_user_profile, u
+                        ),
                         style=flet.ButtonStyle(
-                            color=flet.Colors.BLUE_700,
+                            color=name_color,
                             padding=flet.padding.all(0),
                         ),
+                    )
+                    if not is_me
+                    else flet.Container(),
+                    flet.Text(
+                        body,
+                        size=14,
+                        color="#111b21",
+                        selectable=True,
                     ),
-                    flet.Text(body, size=13, expand=True),
-                    flet.Text(ts, size=11, color=flet.Colors.GREY_500),
+                    flet.Row(
+                        controls=[
+                            flet.Text(ts, size=10, color="#667781"),
+                        ],
+                        alignment=flet.MainAxisAlignment.END,
+                    ),
                 ],
-                spacing=4,
-                vertical_alignment=flet.CrossAxisAlignment.START,
+                spacing=2,
+                tight=True,
             ),
-            padding=flet.padding.symmetric(horizontal=8, vertical=4),
+            bgcolor=bubble_color,
+            border_radius=flet.border_radius.only(
+                top_left=12,
+                top_right=12,
+                bottom_left=4 if is_me else 12,
+                bottom_right=12 if is_me else 4,
+            ),
+            padding=flet.padding.symmetric(horizontal=12, vertical=6),
+            border=flet.border.all(1, "#e0e0e0") if not is_me else None,
         )
+
+        spacer = flet.Container(expand=True)
+        if is_me:
+            return flet.Row(
+                controls=[spacer, bubble],
+                vertical_alignment=flet.CrossAxisAlignment.START,
+            )
+        else:
+            return flet.Row(
+                controls=[bubble, spacer],
+                vertical_alignment=flet.CrossAxisAlignment.START,
+            )
 
     def _on_ws_message(payload: dict) -> None:
         if payload.get("type") == "message":
@@ -132,16 +226,21 @@ def room_view(page: flet.Page, state: AppState) -> None:
     async def _load_messages(before_id: int | None = None) -> list[dict]:
         client = APIClient(base_url="http://localhost:8000", state=state)
         try:
-            return await client.get_messages(room.id, before_id=before_id, limit=50)
+            return await client.get_messages(
+                room.id, before_id=before_id, limit=50
+            )
         except AuthError:
             state.token = None
-            page.snack_bar = flet.SnackBar(flet.Text("Session expired"), open=True)
+            page.snack_bar = flet.SnackBar(
+                flet.Text("Session expired", color="#ffffff"), open=True, bgcolor="#ea4335"
+            )
             page.update()
             from client.views.login_view import login_view
+
             login_view(page, state)
             return []
         except Exception as exc:
-            page.snack_bar = flet.SnackBar(flet.Text(str(exc)), open=True)
+            page.snack_bar = flet.SnackBar(flet.Text(str(exc), color="#ffffff"), open=True, bgcolor="#ea4335")
             page.update()
             return []
         finally:
@@ -181,7 +280,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
             message_input.value = ""
             page.update()
         except Exception as exc:
-            page.snack_bar = flet.SnackBar(flet.Text(str(exc)), open=True)
+            page.snack_bar = flet.SnackBar(flet.Text(str(exc), color="#ffffff"), open=True, bgcolor="#ea4335")
             page.update()
 
     def _on_scroll(e: flet.OnScrollEvent) -> None:
@@ -191,7 +290,12 @@ def room_view(page: flet.Page, state: AppState) -> None:
     messages_list.on_scroll = _on_scroll
 
     async def _start_ws() -> None:
-        ws = WsClient(token=state.token or "", room_id=room.id, on_message=_on_ws_message, on_reconnecting=_on_reconnecting)
+        ws = WsClient(
+            token=state.token or "",
+            room_id=room.id,
+            on_message=_on_ws_message,
+            on_reconnecting=_on_reconnecting,
+        )
         _state["ws_client"] = ws
         await ws.connect()
 
@@ -201,15 +305,19 @@ def room_view(page: flet.Page, state: AppState) -> None:
             ws.close()
         state.active_room = None
         from client.views.room_list_view import room_list_view
+
         room_list_view(page, state)
 
     def _go_settings(e: flet.ControlEvent) -> None:
         from client.views.room_settings_view import room_settings_view
+
         room_settings_view(page, state)
 
     # Invite dialog
-    invite_username_field = flet.TextField(label="Username to invite", autofocus=True)
-    invite_error = flet.Text("", color=flet.Colors.RED_400, visible=False, size=12)
+    invite_username_field = flet.TextField(
+        label="Username to invite", autofocus=True
+    )
+    invite_error = flet.Text("", color="#ea4335", visible=False, size=12)
 
     async def _do_invite(e: flet.ControlEvent) -> None:
         invite_error.visible = False
@@ -222,7 +330,9 @@ def room_view(page: flet.Page, state: AppState) -> None:
             await client.invite_user(room.id, username)
             invite_dialog.open = False
             invite_username_field.value = ""
-            page.snack_bar = flet.SnackBar(flet.Text(f"{username} invited successfully"), open=True)
+            page.snack_bar = flet.SnackBar(
+                flet.Text(f"{username} invited successfully", color="#ffffff"), open=True, bgcolor="#008069"
+            )
             page.update()
         except Exception as exc:
             invite_error.value = str(exc)
@@ -232,11 +342,17 @@ def room_view(page: flet.Page, state: AppState) -> None:
             await client.aclose()
 
     invite_dialog = flet.AlertDialog(
-        title=flet.Text("Invite User"),
-        content=flet.Column(controls=[invite_username_field, invite_error], tight=True, spacing=8),
+        title=flet.Text("Invite User", weight=flet.FontWeight.BOLD, color="#111b21"),
+        content=flet.Column(
+            controls=[invite_username_field, invite_error], tight=True, spacing=8
+        ),
         actions=[
-            flet.TextButton("Cancel", on_click=lambda e: _close_invite_dialog()),
-            flet.ElevatedButton("Invite", on_click=_do_invite),
+            flet.TextButton("Cancel", on_click=lambda e: _close_invite_dialog(), style=flet.ButtonStyle(color="#008069")),
+            flet.ElevatedButton(
+                "Invite",
+                on_click=_do_invite,
+                style=flet.ButtonStyle(bgcolor="#008069", color="#ffffff"),
+            ),
         ],
     )
 
@@ -252,34 +368,98 @@ def room_view(page: flet.Page, state: AppState) -> None:
 
     page.overlay.append(invite_dialog)
 
-    is_owner = state.current_user is not None and room.owner_username == state.current_user.username
+    is_owner = (
+        state.current_user is not None
+        and room.owner_username == state.current_user.username
+    )
     can_invite = is_owner or room.allow_member_invite
 
     top_bar_controls: list[flet.Control] = [
-        flet.IconButton(icon=flet.Icons.ARROW_BACK, on_click=_go_back, tooltip="Back"),
-        flet.Text(room.name, size=20, weight=flet.FontWeight.BOLD, expand=True),
+        flet.IconButton(
+            icon=flet.Icons.ARROW_BACK,
+            on_click=_go_back,
+            tooltip="Back",
+            icon_color="#ffffff",
+        ),
+        flet.Column(
+            controls=[
+                flet.Text(
+                    room.name,
+                    size=18,
+                    weight=flet.FontWeight.BOLD,
+                    color="#ffffff",
+                ),
+                flet.Text(
+                    "Room chat",
+                    size=13,
+                    color="#d1d7db",
+                ),
+            ],
+            spacing=0,
+            tight=True,
+            expand=True,
+        ),
     ]
     if can_invite:
-        top_bar_controls.append(flet.IconButton(icon=flet.Icons.PERSON_ADD, on_click=_open_invite_dialog, tooltip="Invite user"))
+        top_bar_controls.append(
+            flet.IconButton(
+                icon=flet.Icons.PERSON_ADD,
+                on_click=_open_invite_dialog,
+                tooltip="Invite user",
+                icon_color="#ffffff",
+            )
+        )
     if is_owner:
-        top_bar_controls.append(flet.IconButton(icon=flet.Icons.SETTINGS, on_click=_go_settings, tooltip="Room settings"))
+        top_bar_controls.append(
+            flet.IconButton(
+                icon=flet.Icons.SETTINGS,
+                on_click=_go_settings,
+                tooltip="Room settings",
+                icon_color="#ffffff",
+            )
+        )
+
+    top_bar = flet.Container(
+        content=flet.Row(
+            controls=top_bar_controls,
+            vertical_alignment=flet.CrossAxisAlignment.CENTER,
+        ),
+        bgcolor="#008069",
+        padding=flet.padding.symmetric(horizontal=8, vertical=8),
+    )
 
     page.controls.clear()
     page.add(
         flet.Column(
             controls=[
-                flet.Row(controls=top_bar_controls, vertical_alignment=flet.CrossAxisAlignment.CENTER),
+                top_bar,
                 reconnecting_banner,
-                flet.Divider(height=4),
-                messages_list,
-                flet.Divider(height=4),
-                flet.Row(
-                    controls=[message_input, flet.ElevatedButton("Send", on_click=lambda e: page.run_task(_send_message), icon=flet.Icons.SEND)],
-                    vertical_alignment=flet.CrossAxisAlignment.CENTER,
+                flet.Container(
+                    content=messages_list,
+                    bgcolor="#efeae2",
+                    expand=True,
+                    padding=flet.padding.symmetric(horizontal=8, vertical=8),
+                ),
+                flet.Container(
+                    content=flet.Row(
+                        controls=[
+                            message_input,
+                            flet.IconButton(
+                                icon=flet.Icons.SEND,
+                                on_click=lambda e: page.run_task(_send_message),
+                                icon_color="#008069",
+                                tooltip="Send",
+                                icon_size=24,
+                            ),
+                        ],
+                        vertical_alignment=flet.CrossAxisAlignment.CENTER,
+                    ),
+                    bgcolor="#f0f2f5",
+                    padding=flet.padding.symmetric(horizontal=12, vertical=8),
                 ),
             ],
             expand=True,
-            spacing=6,
+            spacing=0,
         )
     )
     page.update()
