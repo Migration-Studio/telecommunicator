@@ -66,7 +66,7 @@ def login_view(page: flet.Page, state: AppState) -> None:
     page.add(
         flet.Column(
             controls=[
-                flet.Text("Python Messenger", size=28, weight=flet.FontWeight.BOLD),
+                flet.Text("Telecommunicator", size=28, weight=flet.FontWeight.BOLD),
                 flet.Text("Sign in to your account", size=14, color=flet.Colors.GREY_600),
                 flet.Divider(height=10, color=flet.Colors.TRANSPARENT),
                 username_field,
