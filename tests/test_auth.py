@@ -1,5 +1,4 @@
 """Integration tests for the auth layer."""
-import pytest
 from httpx import AsyncClient
 
 from app.services.auth_service import create_access_token

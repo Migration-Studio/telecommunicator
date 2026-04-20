@@ -7,17 +7,39 @@ from client.state import AppState, UserDTO
 
 
 def register_view(page: flet.Page, state: AppState) -> None:
-    username_field = flet.TextField(label="Username", autofocus=True)
-    email_field = flet.TextField(label="Email")
-    password_field = flet.TextField(label="Password", password=True, can_reveal_password=True)
+    page.bgcolor = "#f0f2f5"
 
-    username_error = flet.Text("", color=flet.Colors.RED_400, visible=False, size=12)
-    email_error = flet.Text("", color=flet.Colors.RED_400, visible=False, size=12)
-    password_error = flet.Text("", color=flet.Colors.RED_400, visible=False, size=12)
-    general_error = flet.Text("", color=flet.Colors.RED_400, visible=False)
+    username_field = flet.TextField(
+        label="Username", autofocus=True, bgcolor="#ffffff", border_color="#e0e0e0",color="#111b21",
+    )
+    email_field = flet.TextField(
+        label="Email", bgcolor="#ffffff", border_color="#e0e0e0",color="#111b21",
+    )
+    password_field = flet.TextField(
+        label="Password",
+        password=True,
+        can_reveal_password=True,
+        bgcolor="#ffffff",
+        border_color="#e0e0e0",
+        color="#111b21",
+    )
 
-    submit_btn = flet.ElevatedButton("Register", width=300)
-    loading = flet.ProgressRing(visible=False, width=20, height=20)
+    username_error = flet.Text("", color="#ea4335", visible=False, size=12)
+    email_error = flet.Text("", color="#ea4335", visible=False, size=12)
+    password_error = flet.Text("", color="#ea4335", visible=False, size=12)
+    general_error = flet.Text("", color="#ea4335", visible=False)
+
+    submit_btn = flet.ElevatedButton(
+        "Register",
+        width=300,
+        style=flet.ButtonStyle(
+            bgcolor="#008069",
+            color="#ffffff",
+            shape=flet.RoundedRectangleBorder(radius=8),
+            padding=flet.padding.symmetric(vertical=16),
+        ),
+    )
+    loading = flet.ProgressRing(visible=False, width=20, height=20, color="#008069")
 
     def _clear_errors() -> None:
         for t in (username_error, email_error, password_error, general_error):
@@ -50,6 +72,7 @@ def register_view(page: flet.Page, state: AppState) -> None:
                 display_name=me.get("display_name"),
             )
             from client.views.room_list_view import room_list_view
+
             room_list_view(page, state)
         except ConflictError as exc:
             msg = exc.message.lower()
@@ -96,33 +119,68 @@ def register_view(page: flet.Page, state: AppState) -> None:
 
     def go_login(e: flet.ControlEvent) -> None:
         from client.views.login_view import login_view
+
         login_view(page, state)
 
     page.controls.clear()
     page.add(
         flet.Column(
             controls=[
-                flet.Text("Telecommunicator", size=28, weight=flet.FontWeight.BOLD),
-                flet.Text("Create a new account", size=14, color=flet.Colors.GREY_600),
-                flet.Divider(height=10, color=flet.Colors.TRANSPARENT),
-                username_field,
-                username_error,
-                email_field,
-                email_error,
-                password_field,
-                password_error,
-                general_error,
-                flet.Row(
-                    controls=[submit_btn, loading],
-                    alignment=flet.MainAxisAlignment.START,
-                    vertical_alignment=flet.CrossAxisAlignment.CENTER,
+                flet.Container(expand=True),
+                flet.Card(
+                    content=flet.Container(
+                        content=flet.Column(
+                            controls=[
+                                flet.Icon(
+                                    flet.Icons.CHAT, size=56, color="#008069"
+                                ),
+                                flet.Text(
+                                    "Telecommunicator",
+                                    size=28,
+                                    weight=flet.FontWeight.BOLD,
+                                    color="#111b21",
+                                ),
+                                flet.Text(
+                                    "Create a new account",
+                                    size=14,
+                                    color="#667781",
+                                ),
+                                flet.Divider(
+                                    height=20, color=flet.Colors.TRANSPARENT
+                                ),
+                                username_field,
+                                username_error,
+                                email_field,
+                                email_error,
+                                password_field,
+                                password_error,
+                                general_error,
+                                flet.Row(
+                                    controls=[submit_btn, loading],
+                                    alignment=flet.MainAxisAlignment.CENTER,
+                                    vertical_alignment=flet.CrossAxisAlignment.CENTER,
+                                ),
+                                flet.TextButton(
+                                    "Already have an account? Login",
+                                    on_click=go_login,
+                                    style=flet.ButtonStyle(color="#008069"),
+                                ),
+                            ],
+                            alignment=flet.MainAxisAlignment.CENTER,
+                            horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                            width=320,
+                            spacing=12,
+                        ),
+                        padding=32,
+                    ),
+                    elevation=2,
+                    color="#ffffff",
                 ),
-                flet.TextButton("Already have an account? Login", on_click=go_login),
+                flet.Container(expand=True),
             ],
             alignment=flet.MainAxisAlignment.CENTER,
             horizontal_alignment=flet.CrossAxisAlignment.CENTER,
-            width=400,
-            spacing=10,
+            expand=True,
         )
     )
     page.update()

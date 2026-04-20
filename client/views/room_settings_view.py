@@ -7,37 +7,57 @@ from client.state import AppState
 
 
 def room_settings_view(page: flet.Page, state: AppState) -> None:
+    page.bgcolor = "#f0f2f5"
     room = state.active_room
 
     def _go_back(e: flet.ControlEvent | None = None) -> None:
         from client.views.room_view import room_view
+
         room_view(page, state)
 
     # Guard: non-owner access
-    if room is None or state.current_user is None or state.current_user.username != room.owner_username:
-        page.snack_bar = flet.SnackBar(flet.Text("Only the room owner can access settings"), open=True)
+    if (
+        room is None
+        or state.current_user is None
+        or state.current_user.username != room.owner_username
+    ):
+        page.snack_bar = flet.SnackBar(
+            flet.Text("Only the room owner can access settings", color="#ffffff"), open=True, bgcolor="#ea4335"
+        )
         page.update()
         _go_back()
         return
 
-    allow_invite_switch = flet.Switch(label="Allow members to invite others", value=room.allow_member_invite)
-    read_only_switch = flet.Switch(label="Read-only room", value=room.read_only)
+    allow_invite_switch = flet.Switch(
+        label="Allow members to invite others", value=room.allow_member_invite
+    )
+    read_only_switch = flet.Switch(
+        label="Read-only room", value=room.read_only
+    )
 
     async def _on_allow_invite_change(e: flet.ControlEvent) -> None:
         new_value: bool = allow_invite_switch.value or False
         client = APIClient(base_url="http://localhost:8000", state=state)
         try:
-            updated = await client.update_permissions(room.id, allow_member_invite=new_value)
-            room.allow_member_invite = updated.get("allow_member_invite", new_value)
+            updated = await client.update_permissions(
+                room.id, allow_member_invite=new_value
+            )
+            room.allow_member_invite = updated.get(
+                "allow_member_invite", new_value
+            )
             room.read_only = updated.get("read_only", room.read_only)
-            page.snack_bar = flet.SnackBar(flet.Text("Permissions updated"), open=True)
+            page.snack_bar = flet.SnackBar(
+                flet.Text("Permissions updated", color="#ffffff"), open=True, bgcolor="#008069"
+            )
             page.update()
         except ForbiddenError:
-            page.snack_bar = flet.SnackBar(flet.Text("Only the room owner can change permissions"), open=True)
+            page.snack_bar = flet.SnackBar(
+                flet.Text("Only the room owner can change permissions", color="#ffffff"), open=True, bgcolor="#ea4335"
+            )
             allow_invite_switch.value = not new_value
             page.update()
         except Exception as exc:
-            page.snack_bar = flet.SnackBar(flet.Text(str(exc)), open=True)
+            page.snack_bar = flet.SnackBar(flet.Text(str(exc), color="#ffffff"), open=True, bgcolor="#ea4335")
             allow_invite_switch.value = not new_value
             page.update()
         finally:
@@ -48,16 +68,22 @@ def room_settings_view(page: flet.Page, state: AppState) -> None:
         client = APIClient(base_url="http://localhost:8000", state=state)
         try:
             updated = await client.update_permissions(room.id, read_only=new_value)
-            room.allow_member_invite = updated.get("allow_member_invite", room.allow_member_invite)
+            room.allow_member_invite = updated.get(
+                "allow_member_invite", room.allow_member_invite
+            )
             room.read_only = updated.get("read_only", new_value)
-            page.snack_bar = flet.SnackBar(flet.Text("Permissions updated"), open=True)
+            page.snack_bar = flet.SnackBar(
+                flet.Text("Permissions updated", color="#ffffff"), open=True, bgcolor="#008069"
+            )
             page.update()
         except ForbiddenError:
-            page.snack_bar = flet.SnackBar(flet.Text("Only the room owner can change permissions"), open=True)
+            page.snack_bar = flet.SnackBar(
+                flet.Text("Only the room owner can change permissions", color="#ffffff"), open=True, bgcolor="#ea4335"
+            )
             read_only_switch.value = not new_value
             page.update()
         except Exception as exc:
-            page.snack_bar = flet.SnackBar(flet.Text(str(exc)), open=True)
+            page.snack_bar = flet.SnackBar(flet.Text(str(exc), color="#ffffff"), open=True, bgcolor="#ea4335")
             read_only_switch.value = not new_value
             page.update()
         finally:
@@ -70,20 +96,55 @@ def room_settings_view(page: flet.Page, state: AppState) -> None:
     page.add(
         flet.Column(
             controls=[
-                flet.Row(
-                    controls=[
-                        flet.IconButton(icon=flet.Icons.ARROW_BACK, on_click=_go_back, tooltip="Back"),
-                        flet.Text(f"Room Settings \u2014 {room.name}", size=20, weight=flet.FontWeight.BOLD),
-                    ],
-                    vertical_alignment=flet.CrossAxisAlignment.CENTER,
+                flet.Container(
+                    content=flet.Row(
+                        controls=[
+                            flet.IconButton(
+                                icon=flet.Icons.ARROW_BACK,
+                                on_click=_go_back,
+                                tooltip="Back",
+                                icon_color="#ffffff",
+                            ),
+                            flet.Text(
+                                f"Room Settings — {room.name}",
+                                size=20,
+                                weight=flet.FontWeight.BOLD,
+                                color="#ffffff",
+                            ),
+                        ],
+                        vertical_alignment=flet.CrossAxisAlignment.CENTER,
+                    ),
+                    bgcolor="#008069",
+                    padding=flet.padding.symmetric(horizontal=8, vertical=8),
                 ),
-                flet.Divider(height=8),
-                flet.Text("Permissions", size=16, weight=flet.FontWeight.W_600),
-                allow_invite_switch,
-                read_only_switch,
+                flet.Container(
+                    content=flet.Card(
+                        content=flet.Container(
+                            content=flet.Column(
+                                controls=[
+                                    flet.Text(
+                                        "Permissions",
+                                        size=16,
+                                        weight=flet.FontWeight.W_600,
+                                        color="#111b21",
+                                    ),
+                                    flet.Divider(height=8),
+                                    allow_invite_switch,
+                                    read_only_switch,
+                                ],
+                                spacing=16,
+                            ),
+                            padding=20,
+                        ),
+                        color="#ffffff",
+                        elevation=1,
+                    ),
+                    padding=16,
+                    expand=True,
+                ),
             ],
             expand=True,
-            spacing=10,
+            spacing=0,
         )
     )
     page.update()

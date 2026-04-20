@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="python-messenger", lifespan=lifespan)
+app = FastAPI(title="Telecommunicator", lifespan=lifespan)
 
 from app.routers import auth as auth_router  # noqa: E402
 from app.routers import messages as messages_router  # noqa: E402
