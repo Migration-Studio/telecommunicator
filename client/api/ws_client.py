@@ -81,3 +81,51 @@ class WsClient:
                     loop.create_task(self._ws.close())
             except RuntimeError:
                 pass
+
+
+class NotificationClient:
+    """Global WebSocket connection for user-level notifications (invites, etc.)."""
+
+    _WS_BASE = "ws://localhost:8000/ws"
+    _INITIAL_DELAY = 1.0
+    _MAX_DELAY = 30.0
+
+    def __init__(
+        self,
+        token: str,
+        on_notification: Callable[[dict], None],
+    ) -> None:
+        self._token = token
+        self._on_notification = on_notification
+        self._closed = False
+
+    async def connect(self) -> None:
+        delay = self._INITIAL_DELAY
+        while not self._closed:
+            # Connect without room_id — only receives user-level frames
+            url = f"{self._WS_BASE}?token={self._token}"
+            try:
+                async with websockets.connect(url) as ws:
+                    delay = self._INITIAL_DELAY
+                    async for raw in ws:
+                        if self._closed:
+                            break
+                        try:
+                            payload = json.loads(raw)
+                            self._on_notification(payload)
+                        except Exception:
+                            pass
+            except (
+                websockets.exceptions.ConnectionClosed,
+                websockets.exceptions.WebSocketException,
+                OSError,
+            ):
+                pass
+
+            if self._closed:
+                break
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, self._MAX_DELAY)
+
+    def close(self) -> None:
+        self._closed = True

@@ -54,6 +54,7 @@ async def send_message(
         id=msg.id,
         room_id=msg.room_id,
         author_username=author.username,
+        author_display_name=author.display_name,
         body=msg.body,
         created_at=msg.created_at,
     )
@@ -67,6 +68,7 @@ async def send_message(
                 "id": response.id,
                 "room_id": response.room_id,
                 "author_username": response.author_username,
+                "author_display_name": response.author_display_name,
                 "body": response.body,
                 "created_at": response.created_at.isoformat(),
             },
@@ -113,6 +115,7 @@ async def get_message_history(
             id=msg.id,
             room_id=msg.room_id,
             author_username=author.username,
+            author_display_name=author.display_name,
             body=msg.body,
             created_at=msg.created_at,
         )

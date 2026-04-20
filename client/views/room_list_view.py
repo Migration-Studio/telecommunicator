@@ -3,6 +3,7 @@ from __future__ import annotations
 import flet
 
 from client.api.http_client import APIClient
+from client.api.ws_client import NotificationClient
 from client.state import AppState, RoomDTO
 
 
@@ -142,14 +143,18 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
         page.update()
         client = APIClient(base_url="http://localhost:8000", state=state)
         try:
-            all_rooms = await client.list_rooms()
-            # Fetch rooms the user already belongs to so we can show "Open" vs "Join"
+            public_rooms = await client.list_rooms()
+            # Fetch rooms the user already belongs to (includes private rooms)
             try:
                 my_rooms = await client.get_my_rooms()
                 member_room_ids.clear()
                 member_room_ids.update(r["id"] for r in my_rooms)
+                # Merge: public rooms + private rooms the user is a member of
+                public_ids = {r["id"] for r in public_rooms}
+                private_member_rooms = [r for r in my_rooms if r["id"] not in public_ids]
+                all_rooms = public_rooms + private_member_rooms
             except Exception:
-                # Fallback: mark owned rooms as member
+                all_rooms = public_rooms
                 if state.current_user:
                     member_room_ids.update(
                         r["id"] for r in all_rooms
@@ -185,11 +190,43 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
     def _stop_refresh() -> None:
         _active["running"] = False
 
+    # Notification WS — receives invite frames in real time
+    _notif_client: dict = {"client": None}
+
+    def _on_notification(payload: dict) -> None:
+        if payload.get("type") == "invite":
+            room_data = payload.get("payload", {})
+            room_name = room_data.get("name", "a room")
+            page.snack_bar = flet.SnackBar(
+                flet.Text(f"You've been invited to \"{room_name}\"!"),
+                open=True,
+            )
+            page.update()
+            # Refresh the list so the new room appears
+            page.run_task(_load_rooms)
+
+    async def _start_notifications() -> None:
+        nc = NotificationClient(token=state.token or "", on_notification=_on_notification)
+        _notif_client["client"] = nc
+        await nc.connect()
+
+    def _stop_refresh() -> None:  # type: ignore[no-redef]
+        _active["running"] = False
+        nc = _notif_client.get("client")
+        if nc is not None:
+            nc.close()
+
+    def _go_profile(e: flet.ControlEvent) -> None:
+        _stop_refresh()
+        from client.views.profile_view import profile_view
+        profile_view(page, state)
+
     top_bar = flet.Row(
         controls=[
             flet.Text("Rooms", size=22, weight=flet.FontWeight.BOLD, expand=True),
             flet.IconButton(icon=flet.Icons.REFRESH, on_click=lambda e: page.run_task(_load_rooms), tooltip="Refresh"),
             flet.ElevatedButton("+ Create Room", on_click=_open_create_dialog),
+            flet.IconButton(icon=flet.Icons.PERSON, on_click=_go_profile, tooltip="Profile"),
             flet.TextButton("Logout", on_click=do_logout),
         ],
         alignment=flet.MainAxisAlignment.SPACE_BETWEEN,
@@ -207,3 +244,4 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
     page.update()
     page.run_task(_load_rooms)
     page.run_task(_auto_refresh)
+    page.run_task(_start_notifications)

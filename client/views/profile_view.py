@@ -9,8 +9,14 @@ from client.state import AppState
 def profile_view(page: flet.Page, state: AppState) -> None:
     user = state.current_user
 
+    # Reactive info labels
+    display_name_info = flet.Text(
+        f"Display name: {user.display_name or '(not set)' if user else ''}",
+        size=14,
+    )
+
     display_name_field = flet.TextField(
-        label="Display name",
+        label="New display name",
         value=user.display_name or "" if user else "",
         expand=True,
     )
@@ -22,8 +28,10 @@ def profile_view(page: flet.Page, state: AppState) -> None:
         client = APIClient(base_url="http://localhost:8000", state=state)
         try:
             updated = await client.update_profile(display_name=display_name_field.value or "")
+            new_dn = updated.get("display_name")
             if state.current_user is not None:
-                state.current_user.display_name = updated.get("display_name")
+                state.current_user.display_name = new_dn
+            display_name_info.value = f"Display name: {new_dn or '(not set)'}"
             page.snack_bar = flet.SnackBar(flet.Text("Display name updated"), open=True)
             page.update()
         except ValidationError:
@@ -42,8 +50,12 @@ def profile_view(page: flet.Page, state: AppState) -> None:
         finally:
             await client.aclose()
 
-    current_password_field = flet.TextField(label="Current password", password=True, can_reveal_password=True, expand=True)
-    new_password_field = flet.TextField(label="New password", password=True, can_reveal_password=True, expand=True)
+    current_password_field = flet.TextField(
+        label="Current password", password=True, can_reveal_password=True, expand=True
+    )
+    new_password_field = flet.TextField(
+        label="New password", password=True, can_reveal_password=True, expand=True
+    )
     password_error = flet.Text("", color=flet.Colors.RED_400, visible=False, size=12)
 
     async def _change_password(e: flet.ControlEvent) -> None:
@@ -77,10 +89,6 @@ def profile_view(page: flet.Page, state: AppState) -> None:
         from client.views.room_list_view import room_list_view
         room_list_view(page, state)
 
-    username_text = user.username if user else ""
-    email_text = user.email if user else ""
-    display_name_text = user.display_name or "(not set)" if user else ""
-
     page.controls.clear()
     page.add(
         flet.Column(
@@ -94,9 +102,9 @@ def profile_view(page: flet.Page, state: AppState) -> None:
                 ),
                 flet.Divider(height=8),
                 flet.Text("Account Info", size=16, weight=flet.FontWeight.W_600),
-                flet.Text(f"Username: {username_text}", size=14),
-                flet.Text(f"Email: {email_text}", size=14),
-                flet.Text(f"Display name: {display_name_text}", size=14),
+                flet.Text(f"Username: {user.username if user else ''}", size=14),
+                flet.Text(f"Email: {user.email if user else ''}", size=14),
+                display_name_info,
                 flet.Divider(height=12),
                 flet.Text("Update Display Name", size=16, weight=flet.FontWeight.W_600),
                 flet.Row(controls=[display_name_field]),

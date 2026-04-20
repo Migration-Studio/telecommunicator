@@ -134,7 +134,24 @@ async def invite_user(room_id: int, username: str, requester: User, db: AsyncSes
         db.add(RoomMember(room_id=room_id, user_id=target.id))
         await db.commit()
 
-    return await _room_to_response(room, db)
+    response = await _room_to_response(room, db)
+
+    # Notify the invited user in real-time if they're connected
+    from app.ws.connection_manager import manager as ws_manager
+    await ws_manager.send_to_user(target.id, {
+        "type": "invite",
+        "payload": {
+            "id": response.id,
+            "name": response.name,
+            "owner_username": response.owner_username,
+            "member_count": response.member_count,
+            "is_private": response.is_private,
+            "allow_member_invite": response.allow_member_invite,
+            "read_only": response.read_only,
+        },
+    })
+
+    return response
 
 
 async def remove_member(room_id: int, username: str, requester: User, db: AsyncSession) -> RoomResponse:

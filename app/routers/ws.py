@@ -47,6 +47,9 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None, room_id: i
 
         joined_rooms: set[int] = set()
 
+        # Register this connection for user-level notifications (invites, etc.)
+        await manager.connect_user(user.id, ws)
+
         # If room_id provided as query param, subscribe immediately
         if room_id is not None:
             membership = await db.execute(
@@ -106,5 +109,6 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None, room_id: i
         except WebSocketDisconnect:
             pass
         finally:
+            await manager.disconnect_user(user.id, ws)
             for rid in joined_rooms:
                 await manager.disconnect(rid, ws)

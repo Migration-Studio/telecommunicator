@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +24,6 @@ async def get_my_rooms(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return all rooms the current user is a member of."""
     result = await db.execute(
         select(Room)
         .join(RoomMember, RoomMember.room_id == Room.id)
@@ -51,3 +50,17 @@ async def change_password(
 ):
     await user_service.change_password(db, current_user, body.current_password, body.new_password)
     return {"detail": "Password updated"}
+
+
+@router.get("/{username}", response_model=UserProfile)
+async def get_user_by_username(
+    username: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return public profile of any user by username."""
+    result = await db.execute(select(User).where(User.username == username))
+    target = result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return target

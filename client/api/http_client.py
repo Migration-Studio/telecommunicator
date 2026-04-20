@@ -122,6 +122,10 @@ class APIClient:
         r = await self._get("/users/me/rooms")
         return r.json()
 
+    async def get_user(self, username: str) -> dict:
+        r = await self._get(f"/users/{username}")
+        return r.json()
+
     async def update_profile(self, display_name: str) -> dict:
         r = await self._patch("/users/me", json={"display_name": display_name})
         return r.json()
