@@ -1,0 +1,5 @@
+.kiro
+.venv
+.vs
+__pycache__
+.pytest_cache
