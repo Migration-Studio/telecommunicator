@@ -13,9 +13,10 @@ from client.state import AppState
 
 
 def main(page: flet.Page) -> None:
-    page.title = "Python Messenger"
+    page.title = "Telecommunicator"
     page.theme_mode = flet.ThemeMode.LIGHT
-    page.theme = flet.Theme(color_scheme_seed="#008069")
+    page.fonts = {"RobotoFlex": "fonts/RobotoFlex.ttf"}
+    page.theme = flet.Theme(color_scheme_seed="#008069", font_family="RobotoFlex")
     page.padding = 0
 
     state = AppState()
@@ -25,4 +26,8 @@ def main(page: flet.Page) -> None:
 
 
 if __name__ == "__main__":
-    flet.app(target=main, view=flet.AppView.FLET_APP)
+    flet.app(
+        target=main,
+        view=flet.AppView.FLET_APP,
+        assets_dir=os.path.join(os.path.dirname(__file__), "assets"),
+    )
