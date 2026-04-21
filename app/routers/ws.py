@@ -78,6 +78,7 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None, room_id: i
                     await ws.send_json({"type": "error", "payload": "Message body must be 1\u20132000 characters"})
                     continue
 
+                # Single membership + room fetch — reused by send_message via `room=` kwarg
                 membership = await db.execute(
                     select(RoomMember).where(
                         RoomMember.room_id == froom_id, RoomMember.user_id == user.id
@@ -101,7 +102,8 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None, room_id: i
                     joined_rooms.add(froom_id)
 
                 try:
-                    await send_message(room_id=froom_id, body=body, author=user, db=db)
+                    # Pass room to avoid a second fetch inside send_message
+                    await send_message(room_id=froom_id, body=body, author=user, db=db, room=room)
                 except Exception as exc:
                     detail = getattr(exc, "detail", str(exc))
                     await ws.send_json({"type": "error", "payload": detail})

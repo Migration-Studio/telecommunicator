@@ -1,3 +1,4 @@
+import asyncio
 import subprocess
 import sys
 from contextlib import asynccontextmanager
@@ -6,10 +7,14 @@ from fastapi import FastAPI
 
 
 async def run_migrations() -> None:
-    """Apply all pending Alembic migrations before the app starts."""
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        check=True,
+    """Apply all pending Alembic migrations before the app starts (non-blocking)."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None,
+        lambda: subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            check=True,
+        ),
     )
 
 

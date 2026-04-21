@@ -136,7 +136,7 @@ def room_settings_view(page: flet.Page, state: AppState) -> None:
                             ),
                             padding=20,
                         ),
-                        color="#ffffff",
+                        bgcolor="#ffffff",
                         elevation=1,
                     ),
                     padding=16,
