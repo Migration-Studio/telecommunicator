@@ -176,7 +176,7 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
                 ),
                 padding=flet.padding.symmetric(horizontal=16, vertical=12),
             ),
-            color="#ffffff",
+            bgcolor="#ffffff",
             elevation=1,
         )
 

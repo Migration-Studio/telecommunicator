@@ -8,21 +8,52 @@ from app.models.user import User
 from app.schemas.rooms import PermissionUpdate, RoomCreate, RoomResponse
 
 
-async def _room_to_response(room: Room, db: AsyncSession) -> RoomResponse:
-    owner = await db.get(User, room.owner_id)
-    count_result = await db.execute(
-        select(func.count()).where(RoomMember.room_id == room.id)
-    )
-    member_count = count_result.scalar_one()
+def _build_response(room: Room, owner_username: str, member_count: int) -> RoomResponse:
     return RoomResponse(
         id=room.id,
         name=room.name,
-        owner_username=owner.username if owner else "",
+        owner_username=owner_username,
         member_count=member_count,
         is_private=room.is_private,
         allow_member_invite=room.allow_member_invite,
         read_only=room.read_only,
     )
+
+
+async def _room_to_response(room: Room, db: AsyncSession) -> RoomResponse:
+    """Single-room response — used after mutations where we already have the room."""
+    owner = await db.get(User, room.owner_id)
+    count_result = await db.execute(
+        select(func.count()).where(RoomMember.room_id == room.id)
+    )
+    member_count = count_result.scalar_one()
+    return _build_response(room, owner.username if owner else "", member_count)
+
+
+async def _rooms_to_responses(rooms: list[Room], db: AsyncSession) -> list[RoomResponse]:
+    """Batch-load owners and member counts for a list of rooms — avoids N+1."""
+    if not rooms:
+        return []
+
+    room_ids = [r.id for r in rooms]
+    owner_ids = list({r.owner_id for r in rooms})
+
+    # Single query for all owners
+    owner_rows = await db.execute(select(User).where(User.id.in_(owner_ids)))
+    owner_map: dict[int, str] = {u.id: u.username for u in owner_rows.scalars()}
+
+    # Single query for all member counts
+    count_rows = await db.execute(
+        select(RoomMember.room_id, func.count().label("cnt"))
+        .where(RoomMember.room_id.in_(room_ids))
+        .group_by(RoomMember.room_id)
+    )
+    count_map: dict[int, int] = {row.room_id: row.cnt for row in count_rows}
+
+    return [
+        _build_response(r, owner_map.get(r.owner_id, ""), count_map.get(r.id, 0))
+        for r in rooms
+    ]
 
 
 async def create_room(data: RoomCreate, owner: User, db: AsyncSession) -> RoomResponse:
@@ -39,13 +70,13 @@ async def create_room(data: RoomCreate, owner: User, db: AsyncSession) -> RoomRe
     await db.commit()
     await db.refresh(room)
 
-    return await _room_to_response(room, db)
+    return _build_response(room, owner.username, 1)
 
 
 async def list_public_rooms(db: AsyncSession) -> list[RoomResponse]:
     result = await db.execute(select(Room).where(Room.is_private == False))  # noqa: E712
     rooms = result.scalars().all()
-    return [await _room_to_response(r, db) for r in rooms]
+    return await _rooms_to_responses(list(rooms), db)
 
 
 async def join_room(room_id: int, user: User, db: AsyncSession) -> RoomResponse:
@@ -53,23 +84,18 @@ async def join_room(room_id: int, user: User, db: AsyncSession) -> RoomResponse:
     if room is None:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    if room.is_private:
-        # Check if already a member (invited)
-        membership = await db.execute(
-            select(RoomMember).where(
-                RoomMember.room_id == room_id, RoomMember.user_id == user.id
-            )
-        )
-        if membership.scalar_one_or_none() is None:
-            raise HTTPException(status_code=403, detail="Cannot join a private room without an invite")
-
-    # Idempotent: add only if not already a member
+    # Single membership query covers both the private-room gate and idempotency check
     existing = await db.execute(
         select(RoomMember).where(
             RoomMember.room_id == room_id, RoomMember.user_id == user.id
         )
     )
-    if existing.scalar_one_or_none() is None:
+    is_member = existing.scalar_one_or_none() is not None
+
+    if room.is_private and not is_member:
+        raise HTTPException(status_code=403, detail="Cannot join a private room without an invite")
+
+    if not is_member:
         db.add(RoomMember(room_id=room_id, user_id=user.id))
         await db.commit()
 
@@ -109,7 +135,6 @@ async def invite_user(room_id: int, username: str, requester: User, db: AsyncSes
 
     # Permission check: owner can always invite; non-owner only if allow_member_invite
     if room.owner_id != requester.id:
-        # Check requester is a member
         req_membership = await db.execute(
             select(RoomMember).where(
                 RoomMember.room_id == room_id, RoomMember.user_id == requester.id

@@ -14,7 +14,8 @@ from client.state import AppState
 
 def main(page: flet.Page) -> None:
     page.title = "Python Messenger"
-    page.theme_mode = flet.ThemeMode.SYSTEM
+    page.theme_mode = flet.ThemeMode.LIGHT
+    page.theme = flet.Theme(color_scheme_seed="#008069")
     page.padding = 0
 
     state = AppState()

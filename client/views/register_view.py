@@ -174,7 +174,7 @@ def register_view(page: flet.Page, state: AppState) -> None:
                         padding=32,
                     ),
                     elevation=2,
-                    color="#ffffff",
+                    bgcolor="#ffffff",
                 ),
                 flet.Container(expand=True),
             ],

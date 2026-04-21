@@ -18,8 +18,19 @@ async def send_message(
     body: str,
     author: User,
     db: AsyncSession,
+    *,
+    room: Room | None = None,
 ) -> MessageResponse:
-    """Validate, persist, and broadcast a message. Raises HTTPException on failure."""
+    """Validate, persist, and broadcast a message. Raises HTTPException on failure.
+
+    Pass ``room`` if you already have the Room object to avoid a redundant fetch.
+    """
+    # Body validation (cheap, do first)
+    if not body or len(body) > 2000:
+        raise HTTPException(
+            status_code=422, detail="Message body must be 1\u20132000 characters"
+        )
+
     # Membership check
     membership = await db.execute(
         select(RoomMember).where(
@@ -29,16 +40,12 @@ async def send_message(
     if membership.scalar_one_or_none() is None:
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
-    # Body validation
-    if not body or len(body) > 2000:
-        raise HTTPException(
-            status_code=422, detail="Message body must be 1\u20132000 characters"
-        )
-
-    # Read-only check
-    room = await db.get(Room, room_id)
+    # Room fetch (reuse if caller already has it)
+    if room is None:
+        room = await db.get(Room, room_id)
     if room is None:
         raise HTTPException(status_code=404, detail="Room not found")
+
     if room.read_only and room.owner_id != author.id:
         raise HTTPException(
             status_code=403, detail="Room is read-only; only the owner can send messages"

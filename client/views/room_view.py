@@ -23,11 +23,12 @@ def room_view(page: flet.Page, state: AppState) -> None:
     message_input = flet.TextField(
         label="Type a message…",
         expand=True,
-        multiline=False,
+        multiline=True,
         on_submit=lambda e: page.run_task(_send_message),
         bgcolor="#ffffff",
         filled=True,
         border_color=flet.Colors.TRANSPARENT,
+        color=flet.Colors.BLACK
     )
 
     reconnecting_banner = flet.Container(
@@ -41,7 +42,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         padding=flet.padding.symmetric(horizontal=12, vertical=6),
         visible=False,
         border_radius=4,
-        alignment=flet.alignment.center,
+        alignment=flet.alignment.Alignment(0, 0),
     )
 
     _state: dict = {"min_id": None, "loading_older": False, "ws_client": None}

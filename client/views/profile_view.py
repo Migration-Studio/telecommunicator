@@ -195,7 +195,7 @@ def profile_view(page: flet.Page, state: AppState) -> None:
                                     ),
                                     padding=20,
                                 ),
-                                color="#ffffff",
+                                bgcolor="#ffffff",
                                 elevation=1,
                             ),
                             flet.Card(
@@ -232,7 +232,7 @@ def profile_view(page: flet.Page, state: AppState) -> None:
                                     ),
                                     padding=20,
                                 ),
-                                color="#ffffff",
+                                bgcolor="#ffffff",
                                 elevation=1,
                             ),
                             flet.Card(
@@ -272,7 +272,7 @@ def profile_view(page: flet.Page, state: AppState) -> None:
                                     ),
                                     padding=20,
                                 ),
-                                color="#ffffff",
+                                bgcolor="#ffffff",
                                 elevation=1,
                             ),
                         ],

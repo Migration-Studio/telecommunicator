@@ -30,7 +30,7 @@ async def get_my_rooms(
         .where(RoomMember.user_id == current_user.id)
     )
     rooms = result.scalars().all()
-    return [await room_service._room_to_response(r, db) for r in rooms]
+    return await room_service._rooms_to_responses(list(rooms), db)
 
 
 @router.patch("/me", response_model=UserProfile)
