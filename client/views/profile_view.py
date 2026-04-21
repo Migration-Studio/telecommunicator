@@ -3,6 +3,7 @@ from __future__ import annotations
 import flet
 
 from client.api.http_client import APIClient, AuthError, ValidationError
+from client.config import API_URL
 from client.state import AppState
 
 
@@ -29,7 +30,7 @@ def profile_view(page: flet.Page, state: AppState) -> None:
     async def _save_display_name(e: flet.ControlEvent) -> None:
         display_name_error.visible = False
         page.update()
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             updated = await client.update_profile(
                 display_name=display_name_field.value or ""
@@ -82,7 +83,7 @@ def profile_view(page: flet.Page, state: AppState) -> None:
     async def _change_password(e: flet.ControlEvent) -> None:
         password_error.visible = False
         page.update()
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             await client.change_password(
                 current_password=current_password_field.value or "",

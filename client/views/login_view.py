@@ -3,6 +3,7 @@ from __future__ import annotations
 import flet
 
 from client.api.http_client import APIClient, AuthError
+from client.config import API_URL
 from client.state import AppState, UserDTO
 
 
@@ -39,7 +40,7 @@ def login_view(page: flet.Page, state: AppState) -> None:
         loading.visible = True
         page.update()
 
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             token_data = await client.login(
                 username_field.value or "", password_field.value or ""
@@ -79,7 +80,7 @@ def login_view(page: flet.Page, state: AppState) -> None:
         register_view(page, state)
 
     async def do_logout(e: flet.ControlEvent) -> None:
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         await client.logout()
         await client.aclose()
         login_view(page, state)

@@ -4,6 +4,7 @@ import flet
 
 from client.api.http_client import APIClient
 from client.api.ws_client import NotificationClient
+from client.config import API_URL
 from client.state import AppState, RoomDTO
 
 
@@ -30,7 +31,7 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
     async def _do_create_room(e: flet.ControlEvent) -> None:
         create_error.visible = False
         page.update()
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             room_data = await client.create_room(
                 name=new_room_name.value or "",
@@ -91,7 +92,7 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
         name_initial = (room.get("name") or "?")[0].upper()
 
         async def on_join(e: flet.ControlEvent, r: dict = room) -> None:
-            client = APIClient(base_url="http://localhost:8000", state=state)
+            client = APIClient(base_url=API_URL, state=state)
             try:
                 await client.join_room(r["id"])
                 state.active_room = RoomDTO(
@@ -198,7 +199,7 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
         nonlocal all_rooms
         status_text.value = "Loading rooms…"
         page.update()
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             public_rooms = await client.list_rooms()
             # Fetch rooms the user already belongs to (includes private rooms)
@@ -230,7 +231,7 @@ def room_list_view(page: flet.Page, state: AppState) -> None:
 
     async def do_logout(e: flet.ControlEvent) -> None:
         _stop_refresh()
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         await client.logout()
         await client.aclose()
         from client.views.login_view import login_view

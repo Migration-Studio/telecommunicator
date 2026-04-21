@@ -3,6 +3,7 @@ from __future__ import annotations
 import flet
 
 from client.api.http_client import APIClient, ConflictError, ValidationError
+from client.config import API_URL
 from client.state import AppState, UserDTO
 
 
@@ -52,7 +53,7 @@ def register_view(page: flet.Page, state: AppState) -> None:
         loading.visible = True
         page.update()
 
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             await client.register(
                 username=username_field.value or "",
