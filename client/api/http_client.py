@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 
+from client.config import API_URL
 from client.state import AppState
 
 
@@ -69,9 +70,9 @@ def _raise_for_status(response: httpx.Response) -> None:
 class APIClient:
     """Thin async wrapper around httpx.AsyncClient for the messenger REST API."""
 
-    def __init__(self, base_url: str, state: AppState) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.state = state
+    def __init__(self, base_url: str | None = None, state: AppState | None = None) -> None:
+        self.base_url = (base_url or API_URL).rstrip("/")
+        self.state = state or AppState()
         self._client = httpx.AsyncClient(base_url=self.base_url)
 
     def _headers(self) -> dict[str, str]:

@@ -4,6 +4,7 @@ import flet
 
 from client.api.http_client import APIClient, AuthError
 from client.api.ws_client import WsClient
+from client.config import API_URL
 from client.state import AppState
 
 
@@ -66,7 +67,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         _profile_sheet.open = True
         page.update()
 
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             data = await client.get_user(username)
             dn = data.get("display_name") or ""
@@ -225,7 +226,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         page.update()
 
     async def _load_messages(before_id: int | None = None) -> list[dict]:
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             return await client.get_messages(
                 room.id, before_id=before_id, limit=50
@@ -326,7 +327,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         username = (invite_username_field.value or "").strip()
         if not username:
             return
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             await client.invite_user(room.id, username)
             invite_dialog.open = False

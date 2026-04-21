@@ -7,11 +7,12 @@ from typing import Callable
 import websockets
 import websockets.exceptions
 
+from client.config import WS_URL
+
 
 class WsClient:
     """WebSocket client with exponential back-off reconnect logic."""
 
-    _WS_BASE = "ws://localhost:8000/ws"
     _INITIAL_DELAY = 1.0
     _MAX_DELAY = 30.0
 
@@ -21,6 +22,7 @@ class WsClient:
         room_id: int,
         on_message: Callable[[dict], None],
         on_reconnecting: Callable[[float], None] | None = None,
+        ws_url: str | None = None,
     ) -> None:
         self._token = token
         self._room_id = room_id
@@ -28,12 +30,13 @@ class WsClient:
         self._on_reconnecting = on_reconnecting
         self._closed = False
         self._ws = None
+        self._ws_url = ws_url or WS_URL
 
     async def connect(self) -> None:
         """Start the connection loop with exponential back-off reconnect."""
         delay = self._INITIAL_DELAY
         while not self._closed:
-            url = f"{self._WS_BASE}?token={self._token}&room_id={self._room_id}"
+            url = f"{self._ws_url}?token={self._token}&room_id={self._room_id}"
             try:
                 async with websockets.connect(url) as ws:
                     self._ws = ws
@@ -86,7 +89,6 @@ class WsClient:
 class NotificationClient:
     """Global WebSocket connection for user-level notifications (invites, etc.)."""
 
-    _WS_BASE = "ws://localhost:8000/ws"
     _INITIAL_DELAY = 1.0
     _MAX_DELAY = 30.0
 
@@ -94,16 +96,18 @@ class NotificationClient:
         self,
         token: str,
         on_notification: Callable[[dict], None],
+        ws_url: str | None = None,
     ) -> None:
         self._token = token
         self._on_notification = on_notification
         self._closed = False
+        self._ws_url = ws_url or WS_URL
 
     async def connect(self) -> None:
         delay = self._INITIAL_DELAY
         while not self._closed:
             # Connect without room_id — only receives user-level frames
-            url = f"{self._WS_BASE}?token={self._token}"
+            url = f"{self._ws_url}?token={self._token}"
             try:
                 async with websockets.connect(url) as ws:
                     delay = self._INITIAL_DELAY

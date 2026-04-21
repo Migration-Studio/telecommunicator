@@ -3,6 +3,7 @@ from __future__ import annotations
 import flet
 
 from client.api.http_client import APIClient, ForbiddenError
+from client.config import API_URL
 from client.state import AppState
 
 
@@ -37,7 +38,7 @@ def room_settings_view(page: flet.Page, state: AppState) -> None:
 
     async def _on_allow_invite_change(e: flet.ControlEvent) -> None:
         new_value: bool = allow_invite_switch.value or False
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             updated = await client.update_permissions(
                 room.id, allow_member_invite=new_value
@@ -65,7 +66,7 @@ def room_settings_view(page: flet.Page, state: AppState) -> None:
 
     async def _on_read_only_change(e: flet.ControlEvent) -> None:
         new_value: bool = read_only_switch.value or False
-        client = APIClient(base_url="http://localhost:8000", state=state)
+        client = APIClient(base_url=API_URL, state=state)
         try:
             updated = await client.update_permissions(room.id, read_only=new_value)
             room.allow_member_invite = updated.get(
