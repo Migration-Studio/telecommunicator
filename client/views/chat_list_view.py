@@ -4,12 +4,16 @@ import flet
 
 from client.api.http_client import APIClient
 from client.api.ws_client import NotificationClient
+from client.cache.cache_manager import CacheManager
 from client.config import API_URL
 from client.state import AppState, RoomDTO
 
 
 def chat_list_view(page: flet.Page, state: AppState) -> None:
     page.bgcolor = "#f0f2f5"
+    
+    # Initialize cache manager with 30-second refresh interval
+    cache_manager = CacheManager(refresh_interval=30, max_age=300)
     
     # Состояние
     personal_chats: list[dict] = []
@@ -102,7 +106,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
 
     # Диалог создания группового чата
     group_name_field = flet.TextField(label="Название группы", autofocus=True)
-    private_toggle = flet.Switch(label="Приватная группа", value=False)
+    public_toggle = flet.Switch(label="Публичная группа", value=False)
     group_error = flet.Text("", color="#ea4335", visible=False, size=12)
 
     async def _create_group_chat(e: flet.ControlEvent) -> None:
@@ -110,10 +114,11 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         page.update()
         client = APIClient(base_url=API_URL, state=state)
         try:
+            room_type = "public" if public_toggle.value else "group"
             room_data = await client.create_room(
                 name=group_name_field.value or "",
-                room_type="group",
-                is_private=private_toggle.value or False,
+                room_type=room_type,
+                is_private=not public_toggle.value,
             )
             state.active_room = RoomDTO(
                 **{k: room_data[k] for k in RoomDTO.__dataclass_fields__}
@@ -133,7 +138,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
     group_dialog = flet.AlertDialog(
         title=flet.Text("Новая группа", weight=flet.FontWeight.BOLD, color="#111b21"),
         content=flet.Column(
-            controls=[group_name_field, private_toggle, group_error], tight=True, spacing=8
+            controls=[group_name_field, public_toggle, group_error], tight=True, spacing=8
         ),
         actions=[
             flet.TextButton("Отмена", on_click=lambda e: _close_group_dialog(), style=flet.ButtonStyle(color="#008069")),
@@ -161,7 +166,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
 
     def _open_group_dialog(e: flet.ControlEvent) -> None:
         group_name_field.value = ""
-        private_toggle.value = False
+        public_toggle.value = False
         group_error.visible = False
         group_dialog.open = True
         page.update()
@@ -371,13 +376,20 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         
         client = APIClient(base_url=API_URL, state=state)
         try:
-            # Загрузить мои чаты (личные и групповые)
-            my_chats = await client.get_my_rooms()
+            # Define fetch functions for cache manager
+            async def fetch_my_chats():
+                return await client.get_my_rooms()
+            
+            async def fetch_public_rooms():
+                return await client.list_rooms()
+            
+            # Use cache manager to get data
+            my_chats = await cache_manager.get("my_chats", fetch_my_chats)
             personal_chats = [r for r in my_chats if r.get("room_type") == "personal"]
             group_chats = [r for r in my_chats if r.get("room_type") == "group"]
             
-            # Загрузить публичные комнаты
-            public_rooms = await client.list_rooms()
+            # Load public rooms from cache
+            public_rooms = await cache_manager.get("public_rooms", fetch_public_rooms)
             
             _filter_chats(search_field.value or "")
             
@@ -428,6 +440,17 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
             page.update()
             page.run_task(_load_chats)
 
+        elif payload.get("type") == "member_joined":
+            data = payload.get("payload", {})
+            username = data.get("username", "Someone")
+            room_name = data.get("room_name", "group")
+            page.snack_bar = flet.SnackBar(
+                flet.Text(f'{username} joined "{room_name}"', color="#ffffff"),
+                open=True,
+                bgcolor="#25d366",
+            )
+            page.update()
+
     async def _start_notifications() -> None:
         # Close any existing notification client first
         state.close_notif_ws()
@@ -437,9 +460,35 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         )
         state.notif_ws = nc
         await nc.connect()
+    
+    def _start_background_refresh() -> None:
+        """Register background refresh for all cache keys."""
+        client = APIClient(base_url=API_URL, state=state)
+        
+        async def fetch_my_chats():
+            return await client.get_my_rooms()
+        
+        async def fetch_public_rooms():
+            return await client.list_rooms()
+        
+        def on_my_chats_update(data):
+            nonlocal personal_chats, group_chats
+            personal_chats = [r for r in data if r.get("room_type") == "personal"]
+            group_chats = [r for r in data if r.get("room_type") == "group"]
+            _filter_chats(search_field.value or "")
+        
+        def on_public_rooms_update(data):
+            nonlocal public_rooms
+            public_rooms = data
+            _filter_chats(search_field.value or "")
+        
+        # Register background refresh for my chats and public rooms
+        cache_manager.start_background_refresh("my_chats", fetch_my_chats, on_my_chats_update)
+        cache_manager.start_background_refresh("public_rooms", fetch_public_rooms, on_public_rooms_update)
 
     def _stop_refresh() -> None:
         _active["running"] = False
+        cache_manager.stop_background_refresh()
         state.close_notif_ws()
 
     # Обработчик изменения вкладки
@@ -554,3 +603,4 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
     page.run_task(_load_chats)
     page.run_task(_auto_refresh)
     page.run_task(_start_notifications)
+    _start_background_refresh()

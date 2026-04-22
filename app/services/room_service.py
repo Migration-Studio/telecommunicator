@@ -6,6 +6,7 @@ from app.models.room import Room, RoomType
 from app.models.room_member import RoomMember
 from app.models.user import User
 from app.schemas.rooms import PermissionUpdate, RoomCreate, RoomResponse
+from app.ws.connection_manager import manager as ws_manager
 
 
 def _build_response(room: Room, owner_username: str, member_count: int) -> RoomResponse:
@@ -108,9 +109,50 @@ async def join_room(room_id: int, user: User, db: AsyncSession) -> RoomResponse:
     if room.is_private and not is_member:
         raise HTTPException(status_code=403, detail="Cannot join a private room without an invite")
 
+    # Track if this is a first-time join for notification purposes
+    is_first_time_join = False
+
     if not is_member:
+        # Only group and public rooms trigger join notifications
+        if room.room_type in ("group", "public"):
+            is_first_time_join = True
         db.add(RoomMember(room_id=room_id, user_id=user.id))
         await db.commit()
+
+    # Send first-time join notification to existing members
+    if is_first_time_join:
+        # Query all existing members excluding the new joiner
+        members_result = await db.execute(
+            select(RoomMember).where(
+                RoomMember.room_id == room_id,
+                RoomMember.user_id != user.id,
+            )
+        )
+        existing_members = members_result.scalars().all()
+
+        # Get the new member's join timestamp
+        new_member_result = await db.execute(
+            select(RoomMember).where(
+                RoomMember.room_id == room_id,
+                RoomMember.user_id == user.id,
+            )
+        )
+        new_member = new_member_result.scalar_one()
+
+        for member in existing_members:
+            try:
+                await ws_manager.send_to_user(member.user_id, {
+                    "type": "member_joined",
+                    "payload": {
+                        "room_id": room_id,
+                        "room_name": room.name,
+                        "username": user.username,
+                        "joined_at": new_member.joined_at.isoformat(),
+                    },
+                })
+            except Exception:
+                # Notification failure must not block the join operation
+                pass
 
     return await _room_to_response(room, db)
 
@@ -175,7 +217,6 @@ async def invite_user(room_id: int, username: str, requester: User, db: AsyncSes
     response = await _room_to_response(room, db)
 
     # Notify the invited user in real-time if they're connected
-    from app.ws.connection_manager import manager as ws_manager
     await ws_manager.send_to_user(target.id, {
         "type": "invite",
         "payload": {

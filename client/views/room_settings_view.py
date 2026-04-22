@@ -93,6 +93,42 @@ def room_settings_view(page: flet.Page, state: AppState) -> None:
     allow_invite_switch.on_change = _on_allow_invite_change
     read_only_switch.on_change = _on_read_only_change
 
+    # Conditional rendering based on room type
+    if room.room_type == "personal":
+        settings_content = flet.Column(
+            controls=[
+                flet.Text(
+                    "Permissions",
+                    size=16,
+                    weight=flet.FontWeight.W_600,
+                    color="#111b21",
+                ),
+                flet.Divider(height=8),
+                flet.Text(
+                    "Personal chat settings are managed automatically",
+                    size=14,
+                    color="#667781",
+                    italic=True,
+                ),
+            ],
+            spacing=16,
+        )
+    else:
+        settings_content = flet.Column(
+            controls=[
+                flet.Text(
+                    "Permissions",
+                    size=16,
+                    weight=flet.FontWeight.W_600,
+                    color="#111b21",
+                ),
+                flet.Divider(height=8),
+                allow_invite_switch,
+                read_only_switch,
+            ],
+            spacing=16,
+        )
+
     page.controls.clear()
     page.add(
         flet.Column(
@@ -121,20 +157,7 @@ def room_settings_view(page: flet.Page, state: AppState) -> None:
                 flet.Container(
                     content=flet.Card(
                         content=flet.Container(
-                            content=flet.Column(
-                                controls=[
-                                    flet.Text(
-                                        "Permissions",
-                                        size=16,
-                                        weight=flet.FontWeight.W_600,
-                                        color="#111b21",
-                                    ),
-                                    flet.Divider(height=8),
-                                    allow_invite_switch,
-                                    read_only_switch,
-                                ],
-                                spacing=16,
-                            ),
+                            content=settings_content,
                             padding=20,
                         ),
                         bgcolor="#ffffff",

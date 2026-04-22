@@ -313,6 +313,19 @@ def room_view(page: flet.Page, state: AppState) -> None:
 
     async def _initial_load() -> None:
         print(f"[INIT] Starting initial message load...")
+
+        # Auto-join public rooms if not already a member
+        if room.room_type == "public":
+            client = APIClient(base_url=API_URL, state=state)
+            try:
+                updated = await client.join_room(room.id)
+                # Sync member count in case it changed
+                room.member_count = updated.get("member_count", room.member_count)
+            except Exception as exc:
+                print(f"[INIT] Auto-join failed: {exc}")
+            finally:
+                await client.aclose()
+
         msgs = await _load_messages()
         msgs_sorted = sorted(msgs, key=lambda m: m["id"])
         print(f"[INIT] Loaded {len(msgs_sorted)} messages")
