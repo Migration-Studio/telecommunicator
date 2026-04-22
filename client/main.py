@@ -14,23 +14,32 @@ from client.state import AppState
 from client.storage.settings import LocalStorage
 
 import logging
+"""
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)"""
 
-_SETTINGS_DIR = os.path.join(os.path.dirname(__file__), "storage", "data")
+_SETTINGS_DIR_FALLBACK = os.path.join(os.path.dirname(__file__), "storage", "data")
 
 
-def main(page: flet.Page) -> None:
+async def main(page: flet.Page) -> None:
     page.title = "Мессенджер"
     page.theme_mode = flet.ThemeMode.LIGHT
     page.fonts = {"RobotoFlex": "fonts/RobotoFlex.ttf"}
     page.theme = flet.Theme(color_scheme_seed="#008069", font_family="RobotoFlex")
     page.padding = 0
 
-    storage = LocalStorage(_SETTINGS_DIR)
+    try:
+        settings_dir = await flet.StoragePaths().get_application_support_directory()
+    except Exception:
+        settings_dir = None
+    if not settings_dir:
+        settings_dir = _SETTINGS_DIR_FALLBACK
+    logger.info("[main] settings dir: %s", settings_dir)
+
+    storage = LocalStorage(settings_dir)
     state = AppState(secure_storage=storage)
 
     stored_locale = storage.get("settings.locale") or "ru"
