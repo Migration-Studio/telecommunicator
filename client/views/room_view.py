@@ -18,7 +18,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
     messages_list = flet.ListView(
         expand=True,
         spacing=6,
-        auto_scroll=True,
+        auto_scroll=False,
     )
 
     message_input = flet.TextField(
@@ -46,7 +46,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         alignment=flet.alignment.Alignment(0, 0),
     )
 
-    _state: dict = {"min_id": None, "loading_older": False, "ws_client": None}
+    _state: dict = {"min_id": None, "loading_older": False, "ws_client": None, "user_at_bottom": True}
 
     # User profile bottom sheet
     _profile_sheet_content = flet.Column(tight=True, spacing=8, width=320)
@@ -199,27 +199,90 @@ def room_view(page: flet.Page, state: AppState) -> None:
                 bottom_right=12 if is_me else 4,
             ),
             padding=flet.padding.symmetric(horizontal=12, vertical=6),
-            border=flet.border.all(1, "#e0e0e0") if not is_me else None,
+            border=flet.Border.all(1, "#e0e0e0") if not is_me else None,
+            animate_scale=flet.Animation(200, flet.AnimationCurve.EASE_OUT),
+            animate_opacity=flet.Animation(200, flet.AnimationCurve.EASE_OUT),
         )
 
+        msg_id = msg.get("id")
         spacer = flet.Container(expand=True)
         if is_me:
             return flet.Row(
+                key=str(msg_id) if msg_id else None,
                 controls=[spacer, bubble],
                 vertical_alignment=flet.CrossAxisAlignment.START,
             )
         else:
             return flet.Row(
+                key=str(msg_id) if msg_id else None,
                 controls=[bubble, spacer],
                 vertical_alignment=flet.CrossAxisAlignment.START,
             )
 
+    def _animate_message(message_control: flet.Row) -> None:
+        """Animate a newly added message bubble."""
+        bubble = message_control.controls[0] if message_control.controls else None
+        if bubble is None:
+            return
+        # Set initial state (bubble is the first control — either spacer or container)
+        # Find the Container (bubble) — it's always the non-spacer control
+        container = next(
+            (c for c in message_control.controls if isinstance(c, flet.Container) and c.content is not None),
+            None,
+        )
+        if container is None:
+            return
+        container.scale = 0.85
+        container.opacity = 0.0
+        page.update()
+        container.scale = 1.0
+        container.opacity = 1.0
+        page.update()
+
+    async def _smooth_scroll_to_bottom() -> None:
+        """Smoothly scroll to the bottom of the chat area."""
+        print(f"[SCROLL] Starting smooth scroll to bottom...")
+        # Small delay to ensure UI is rendered
+        import asyncio
+        await asyncio.sleep(0.1)
+        await messages_list.scroll_to(
+            offset=-1,
+            duration=400,
+            curve=flet.AnimationCurve.EASE_OUT,
+        )
+        print(f"[SCROLL] Smooth scroll completed")
+
+    def _is_user_at_bottom() -> bool:
+        """Check if user is scrolled near the bottom of the chat."""
+        # We track this via on_scroll event
+        return _state.get("user_at_bottom", True)
+
     def _on_ws_message(payload: dict) -> None:
+        print(f"[WS] Received message payload: {payload}")
         if payload.get("type") == "message":
             msg = payload.get("payload", payload)
-            messages_list.controls.append(_build_message_tile(msg))
+            print(f"[WS] Processing message: {msg.get('id', 'no-id')} from {msg.get('author_username', 'unknown')}")
+            
+            user_at_bottom = _is_user_at_bottom()
+            print(f"[WS] User at bottom: {user_at_bottom}")
+            
+            message_control = _build_message_tile(msg)
+            messages_list.controls.append(message_control)
+            print(f"[WS] Added message to list, total messages: {len(messages_list.controls)}")
+            
             reconnecting_banner.visible = False
+            _animate_message(message_control)
+            print(f"[WS] Animated message")
+            
             page.update()
+            print(f"[WS] Updated page")
+            
+            # Only scroll to bottom if user was already at bottom
+            if user_at_bottom:
+                print(f"[WS] Scrolling to bottom...")
+                page.run_task(_smooth_scroll_to_bottom)
+            else:
+                print(f"[WS] Not scrolling - user not at bottom")
 
     def _on_reconnecting(delay: float) -> None:
         reconnecting_banner.visible = True
@@ -249,13 +312,24 @@ def room_view(page: flet.Page, state: AppState) -> None:
             await client.aclose()
 
     async def _initial_load() -> None:
+        print(f"[INIT] Starting initial message load...")
         msgs = await _load_messages()
         msgs_sorted = sorted(msgs, key=lambda m: m["id"])
+        print(f"[INIT] Loaded {len(msgs_sorted)} messages")
+        
         if msgs_sorted:
             _state["min_id"] = msgs_sorted[0]["id"]
             for m in msgs_sorted:
                 messages_list.controls.append(_build_message_tile(m))
+            print(f"[INIT] Added {len(msgs_sorted)} messages to UI")
+        
         page.update()
+        print(f"[INIT] Updated page, now scrolling to bottom...")
+        
+        # Ensure user is marked as at bottom for initial load
+        _state["user_at_bottom"] = True
+        await _smooth_scroll_to_bottom()
+        print(f"[INIT] Initial load complete")
 
     async def _load_older() -> None:
         if _state["loading_older"] or _state["min_id"] is None:
@@ -266,28 +340,60 @@ def room_view(page: flet.Page, state: AppState) -> None:
             msgs_sorted = sorted(msgs, key=lambda m: m["id"])
             _state["min_id"] = msgs_sorted[0]["id"]
             new_tiles = [_build_message_tile(m) for m in msgs_sorted]
+            # Insert older messages at the top
             messages_list.controls = new_tiles + messages_list.controls
             page.update()
+            # Scroll to the first of the previously visible messages to keep reading position
+            if new_tiles:
+                await messages_list.scroll_to(
+                    scroll_key=new_tiles[-1],
+                    duration=0,
+                )
         _state["loading_older"] = False
 
     async def _send_message() -> None:
         body = (message_input.value or "").strip()
+        print(f"[SEND] Attempting to send message: '{body}'")
         if not body:
+            print(f"[SEND] Empty message, aborting")
             return
         ws: WsClient | None = _state.get("ws_client")
         if ws is None:
+            print(f"[SEND] No WebSocket client available")
             return
         try:
+            # Mark user as "at bottom" when sending a message
+            print(f"[SEND] Setting user_at_bottom = True")
+            _state["user_at_bottom"] = True
+            
+            print(f"[SEND] Sending message via WebSocket...")
             await ws.send_message(room.id, body)
+            
             message_input.value = ""
+            print(f"[SEND] Cleared input field")
             page.update()
+            print(f"[SEND] Updated page")
         except Exception as exc:
+            print(f"[SEND] Error sending message: {exc}")
             page.snack_bar = flet.SnackBar(flet.Text(str(exc), color="#ffffff"), open=True, bgcolor="#ea4335")
             page.update()
 
     def _on_scroll(e: flet.OnScrollEvent) -> None:
-        if e.pixels is not None and e.pixels <= 50:
-            page.run_task(_load_older)
+        # Track if user is at bottom (within 100px threshold)
+        if e.pixels is not None and e.max_scroll_extent is not None:
+            distance_from_bottom = e.max_scroll_extent - e.pixels
+            was_at_bottom = _state.get("user_at_bottom", True)
+            is_at_bottom = distance_from_bottom < 100
+            
+            if was_at_bottom != is_at_bottom:
+                print(f"[SCROLL] User position changed: at_bottom={is_at_bottom} (distance={distance_from_bottom:.1f}px)")
+            
+            _state["user_at_bottom"] = is_at_bottom
+            
+            # Load older messages when scrolled to top
+            if e.pixels <= 50:
+                print(f"[SCROLL] Near top (pixels={e.pixels}), loading older messages...")
+                page.run_task(_load_older)
 
     messages_list.on_scroll = _on_scroll
 
