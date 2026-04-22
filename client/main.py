@@ -14,12 +14,11 @@ from client.state import AppState
 from client.storage.settings import LocalStorage
 
 import logging
-"""
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-logger = logging.getLogger(__name__)"""
+logger = logging.getLogger(__name__)
 
 _SETTINGS_DIR_FALLBACK = os.path.join(os.path.dirname(__file__), "storage", "data")
 
