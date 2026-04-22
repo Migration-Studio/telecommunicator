@@ -13,7 +13,7 @@ from client.state import AppState
 
 
 def main(page: flet.Page) -> None:
-    page.title = "Telecommunicator"
+    page.title = "Мессенджер"
     page.theme_mode = flet.ThemeMode.LIGHT
     page.fonts = {"RobotoFlex": "fonts/RobotoFlex.ttf"}
     page.theme = flet.Theme(color_scheme_seed="#008069", font_family="RobotoFlex")

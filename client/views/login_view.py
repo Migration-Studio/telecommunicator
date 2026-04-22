@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import flet
 
+import httpx
+
 from client.api.http_client import APIClient, AuthError
 from client.config import API_URL
 from client.state import AppState, UserDTO
@@ -53,17 +55,23 @@ def login_view(page: flet.Page, state: AppState) -> None:
                 email=me["email"],
                 display_name=me.get("display_name"),
             )
-            from client.views.room_list_view import room_list_view
+            from client.views.chat_list_view import chat_list_view
 
-            room_list_view(page, state)
+            chat_list_view(page, state)
         except AuthError:
             error_text.value = "Invalid username or password"
             error_text.visible = True
             submit_btn.disabled = False
             loading.visible = False
             page.update()
+        except (httpx.ConnectError, httpx.TimeoutException):
+            error_text.value = "Cannot connect to server"
+            error_text.visible = True
+            submit_btn.disabled = False
+            loading.visible = False
+            page.update()
         except Exception as exc:
-            error_text.value = f"Server error: {exc}"
+            error_text.value = f"Server error: {exc}" if str(exc) else "Unknown server error"
             error_text.visible = True
             submit_btn.disabled = False
             loading.visible = False

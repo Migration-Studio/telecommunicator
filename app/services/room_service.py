@@ -1,8 +1,8 @@
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.room import Room
+from app.models.room import Room, RoomType
 from app.models.room_member import RoomMember
 from app.models.user import User
 from app.schemas.rooms import PermissionUpdate, RoomCreate, RoomResponse
@@ -12,6 +12,7 @@ def _build_response(room: Room, owner_username: str, member_count: int) -> RoomR
     return RoomResponse(
         id=room.id,
         name=room.name,
+        room_type=room.room_type,
         owner_username=owner_username,
         member_count=member_count,
         is_private=room.is_private,
@@ -57,11 +58,18 @@ async def _rooms_to_responses(rooms: list[Room], db: AsyncSession) -> list[RoomR
 
 
 async def create_room(data: RoomCreate, owner: User, db: AsyncSession) -> RoomResponse:
-    existing = await db.execute(select(Room).where(Room.name == data.name))
-    if existing.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=409, detail="Room name already exists")
+    # Для публичных комнат проверяем уникальность имени
+    if data.room_type == "public":
+        existing = await db.execute(select(Room).where(Room.name == data.name))
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=409, detail="Room name already exists")
 
-    room = Room(name=data.name, owner_id=owner.id, is_private=data.is_private)
+    room = Room(
+        name=data.name, 
+        room_type=data.room_type,
+        owner_id=owner.id, 
+        is_private=data.is_private
+    )
     db.add(room)
     await db.flush()
 
@@ -74,7 +82,12 @@ async def create_room(data: RoomCreate, owner: User, db: AsyncSession) -> RoomRe
 
 
 async def list_public_rooms(db: AsyncSession) -> list[RoomResponse]:
-    result = await db.execute(select(Room).where(Room.is_private == False))  # noqa: E712
+    result = await db.execute(
+        select(Room).where(
+            Room.is_private == False,  # noqa: E712
+            Room.room_type == "public"
+        )
+    )
     rooms = result.scalars().all()
     return await _rooms_to_responses(list(rooms), db)
 
@@ -229,3 +242,65 @@ async def update_permissions(
     await db.refresh(room)
 
     return await _room_to_response(room, db)
+
+
+async def create_personal_chat(target_username: str, requester: User, db: AsyncSession) -> RoomResponse:
+    """Создает или находит существующий личный чат между двумя пользователями."""
+    # Найти целевого пользователя
+    target_result = await db.execute(select(User).where(User.username == target_username))
+    target = target_result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target.id == requester.id:
+        raise HTTPException(status_code=400, detail="Cannot create personal chat with yourself")
+    
+    # Проверить, существует ли уже личный чат между этими пользователями
+    existing_chat = await db.execute(
+        select(Room)
+        .join(RoomMember, Room.id == RoomMember.room_id)
+        .where(
+            Room.room_type == RoomType.PERSONAL,
+            RoomMember.user_id.in_([requester.id, target.id])
+        )
+        .group_by(Room.id)
+        .having(func.count(RoomMember.user_id) == 2)
+    )
+    
+    existing_room = existing_chat.scalar_one_or_none()
+    if existing_room:
+        return await _room_to_response(existing_room, db)
+    
+    # Создать новый личный чат
+    chat_name = f"{requester.username}, {target.username}"
+    room = Room(
+        name=chat_name,
+        room_type=RoomType.PERSONAL,
+        owner_id=requester.id,
+        is_private=True,
+        allow_member_invite=False,
+        read_only=False
+    )
+    db.add(room)
+    await db.flush()
+    
+    # Добавить обоих пользователей как участников
+    db.add(RoomMember(room_id=room.id, user_id=requester.id))
+    db.add(RoomMember(room_id=room.id, user_id=target.id))
+    
+    await db.commit()
+    await db.refresh(room)
+    
+    return _build_response(room, requester.username, 2)
+
+
+async def get_user_chats(user: User, db: AsyncSession) -> list[RoomResponse]:
+    """Получить все чаты пользователя (личные и групповые)."""
+    result = await db.execute(
+        select(Room)
+        .join(RoomMember, Room.id == RoomMember.room_id)
+        .where(RoomMember.user_id == user.id)
+        .order_by(Room.created_at.desc())
+    )
+    rooms = result.scalars().all()
+    return await _rooms_to_responses(list(rooms), db)

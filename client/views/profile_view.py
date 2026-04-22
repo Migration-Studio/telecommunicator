@@ -110,9 +110,9 @@ def profile_view(page: flet.Page, state: AppState) -> None:
             await client.aclose()
 
     def _go_back(e: flet.ControlEvent) -> None:
-        from client.views.room_list_view import room_list_view
+        from client.views.chat_list_view import chat_list_view
 
-        room_list_view(page, state)
+        chat_list_view(page, state)
 
     page.controls.clear()
     page.add(
