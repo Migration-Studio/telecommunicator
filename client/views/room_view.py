@@ -166,7 +166,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         else:
             on_right = is_me  # default: mine on right, others on left
 
-        bubble_color = "#d9fdd3" if on_right else "#ffffff"
+        bubble_color = "#d9fdd3" if is_me else "#ffffff"
         name_color = "#008069"
 
         bubble = flet.Container(
