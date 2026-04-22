@@ -6,27 +6,25 @@ from client.api.http_client import APIClient
 from client.api.ws_client import NotificationClient
 from client.cache.cache_manager import CacheManager
 from client.config import API_URL
+from client.locale import t
 from client.state import AppState, RoomDTO
 
 
 def chat_list_view(page: flet.Page, state: AppState) -> None:
     page.bgcolor = "#f0f2f5"
-    
-    # Initialize cache manager with 30-second refresh interval
+
     cache_manager = CacheManager(refresh_interval=30, max_age=300)
-    
-    # Состояние
+
     personal_chats: list[dict] = []
     group_chats: list[dict] = []
     public_rooms: list[dict] = []
-    
-    # UI элементы для каждой вкладки
+
     personal_column = flet.Column(scroll=flet.ScrollMode.AUTO, expand=True, spacing=8)
     group_column = flet.Column(scroll=flet.ScrollMode.AUTO, expand=True, spacing=8)
     public_column = flet.Column(scroll=flet.ScrollMode.AUTO, expand=True, spacing=8)
-    
+
     search_field = flet.TextField(
-        label="Поиск чатов",
+        label=t("chat_list.search"),
         prefix_icon=flet.Icons.SEARCH,
         expand=True,
         on_change=lambda e: _filter_chats(e.control.value),
@@ -34,10 +32,9 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         border_color=flet.Colors.TRANSPARENT,
         filled=True,
     )
-    
+
     status_text = flet.Text("", color="#667781", size=12)
 
-    # Создание вкладок
     tabs = flet.Tabs(
         selected_index=0,
         length=3,
@@ -47,25 +44,21 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
             controls=[
                 flet.TabBar(
                     tabs=[
-                        flet.Tab(label=flet.Text("Личные"), icon=flet.Icons.PERSON),
-                        flet.Tab(label=flet.Text("Группы"), icon=flet.Icons.GROUP),
-                        flet.Tab(label=flet.Text("Публичные"), icon=flet.Icons.PUBLIC),
+                        flet.Tab(label=flet.Text(t("chat_list.tab_personal")), icon=flet.Icons.PERSON),
+                        flet.Tab(label=flet.Text(t("chat_list.tab_groups")), icon=flet.Icons.GROUP),
+                        flet.Tab(label=flet.Text(t("chat_list.tab_public")), icon=flet.Icons.PUBLIC),
                     ]
                 ),
                 flet.TabBarView(
                     expand=True,
-                    controls=[
-                        personal_column,
-                        group_column,
-                        public_column,
-                    ]
+                    controls=[personal_column, group_column, public_column],
                 ),
-            ]
-        )
+            ],
+        ),
     )
 
-    # Диалог создания личного чата
-    username_field = flet.TextField(label="Имя пользователя", autofocus=True)
+    # --- Диалог личного чата ---
+    username_field = flet.TextField(label=t("chat_list.username_field"), autofocus=True)
     personal_error = flet.Text("", color="#ea4335", visible=False, size=12)
 
     async def _create_personal_chat(e: flet.ControlEvent) -> None:
@@ -74,9 +67,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         client = APIClient(base_url=API_URL, state=state)
         try:
             room_data = await client.create_personal_chat(username_field.value or "")
-            state.active_room = RoomDTO(
-                **{k: room_data[k] for k in RoomDTO.__dataclass_fields__}
-            )
+            state.active_room = RoomDTO(**{k: room_data[k] for k in RoomDTO.__dataclass_fields__})
             personal_dialog.open = False
             page.update()
             _stop_refresh()
@@ -90,23 +81,17 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
             await client.aclose()
 
     personal_dialog = flet.AlertDialog(
-        title=flet.Text("Новый личный чат", weight=flet.FontWeight.BOLD, color="#111b21"),
-        content=flet.Column(
-            controls=[username_field, personal_error], tight=True, spacing=8
-        ),
+        title=flet.Text(t("chat_list.new_personal_chat"), weight=flet.FontWeight.BOLD, color="#111b21"),
+        content=flet.Column(controls=[username_field, personal_error], tight=True, spacing=8),
         actions=[
-            flet.TextButton("Отмена", on_click=lambda e: _close_personal_dialog(), style=flet.ButtonStyle(color="#008069")),
-            flet.ElevatedButton(
-                "Создать",
-                on_click=_create_personal_chat,
-                style=flet.ButtonStyle(bgcolor="#008069", color="#ffffff"),
-            ),
+            flet.TextButton(t("chat_list.cancel"), on_click=lambda e: _close_personal_dialog(), style=flet.ButtonStyle(color="#008069")),
+            flet.ElevatedButton(t("chat_list.create"), on_click=_create_personal_chat, style=flet.ButtonStyle(bgcolor="#008069", color="#ffffff")),
         ],
     )
 
-    # Диалог создания группового чата
-    group_name_field = flet.TextField(label="Название группы", autofocus=True)
-    public_toggle = flet.Switch(label="Публичная группа", value=False)
+    # --- Диалог группового чата ---
+    group_name_field = flet.TextField(label=t("chat_list.group_name_field"), autofocus=True)
+    public_toggle = flet.Switch(label=t("chat_list.public_group"), value=False)
     group_error = flet.Text("", color="#ea4335", visible=False, size=12)
 
     async def _create_group_chat(e: flet.ControlEvent) -> None:
@@ -120,9 +105,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
                 room_type=room_type,
                 is_private=not public_toggle.value,
             )
-            state.active_room = RoomDTO(
-                **{k: room_data[k] for k in RoomDTO.__dataclass_fields__}
-            )
+            state.active_room = RoomDTO(**{k: room_data[k] for k in RoomDTO.__dataclass_fields__})
             group_dialog.open = False
             page.update()
             _stop_refresh()
@@ -136,17 +119,11 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
             await client.aclose()
 
     group_dialog = flet.AlertDialog(
-        title=flet.Text("Новая группа", weight=flet.FontWeight.BOLD, color="#111b21"),
-        content=flet.Column(
-            controls=[group_name_field, public_toggle, group_error], tight=True, spacing=8
-        ),
+        title=flet.Text(t("chat_list.new_group_chat"), weight=flet.FontWeight.BOLD, color="#111b21"),
+        content=flet.Column(controls=[group_name_field, public_toggle, group_error], tight=True, spacing=8),
         actions=[
-            flet.TextButton("Отмена", on_click=lambda e: _close_group_dialog(), style=flet.ButtonStyle(color="#008069")),
-            flet.ElevatedButton(
-                "Создать",
-                on_click=_create_group_chat,
-                style=flet.ButtonStyle(bgcolor="#008069", color="#ffffff"),
-            ),
+            flet.TextButton(t("chat_list.cancel"), on_click=lambda e: _close_group_dialog(), style=flet.ButtonStyle(color="#008069")),
+            flet.ElevatedButton(t("chat_list.create"), on_click=_create_group_chat, style=flet.ButtonStyle(bgcolor="#008069", color="#ffffff")),
         ],
     )
 
@@ -173,54 +150,45 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
 
     page.overlay.extend([personal_dialog, group_dialog])
 
-    # Обработчик изменения вкладки
-    def _on_tab_change(e: flet.ControlEvent) -> None:
-        # Обновляем кнопки создания в зависимости от вкладки
-        _update_create_buttons()
+    # --- Кнопки создания ---
+    create_buttons = flet.Row(alignment=flet.MainAxisAlignment.CENTER, controls=[])
 
-    def _update_create_buttons():
-        """Обновить кнопки создания в зависимости от активной вкладки"""
+    def _update_create_buttons() -> None:
         create_buttons.controls.clear()
-        
-        if tabs.selected_index == 0:  # Личные
+        if tabs.selected_index == 0:
             create_buttons.controls.append(
                 flet.ElevatedButton(
-                    "Новый чат",
+                    t("chat_list.new_chat"),
                     icon=flet.Icons.PERSON_ADD,
                     on_click=_open_personal_dialog,
                     style=flet.ButtonStyle(
-                        bgcolor="#25d366",
-                        color="#ffffff",
+                        bgcolor="#25d366", color="#ffffff",
                         shape=flet.RoundedRectangleBorder(radius=20),
                     ),
                 )
             )
-        elif tabs.selected_index == 1:  # Группы
+        elif tabs.selected_index == 1:
             create_buttons.controls.append(
                 flet.ElevatedButton(
-                    "Новая группа",
+                    t("chat_list.new_group"),
                     icon=flet.Icons.GROUP_ADD,
                     on_click=_open_group_dialog,
                     style=flet.ButtonStyle(
-                        bgcolor="#008069",
-                        color="#ffffff",
+                        bgcolor="#008069", color="#ffffff",
                         shape=flet.RoundedRectangleBorder(radius=20),
                     ),
                 )
             )
-        
         page.update()
 
-    # Контейнер для кнопок создания
-    create_buttons = flet.Row(
-        alignment=flet.MainAxisAlignment.CENTER,
-        controls=[]
-    )
+    def _on_tab_change(e: flet.ControlEvent) -> None:
+        _update_create_buttons()
 
+    tabs.on_change = _on_tab_change
+
+    # --- Отображение чатов ---
     def _get_chat_display_name(room: dict) -> str:
-        """Получить отображаемое имя чата."""
         if room.get("room_type") == "personal":
-            # Для личных чатов показываем имя собеседника
             name = room.get("name", "")
             if state.current_user and state.current_user.username in name:
                 parts = name.split(", ")
@@ -232,8 +200,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         display_name = _get_chat_display_name(room)
         name_initial = display_name[0].upper() if display_name else "?"
         room_type = room.get("room_type", "public")
-        
-        # Иконка в зависимости от типа
+
         if room_type == "personal":
             icon = flet.Icons.PERSON
             icon_color = "#25d366"
@@ -245,20 +212,18 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
             icon_color = "#667781"
 
         async def on_open(e: flet.ControlEvent, r: dict = room) -> None:
-            state.active_room = RoomDTO(
-                **{k: r[k] for k in RoomDTO.__dataclass_fields__}
-            )
+            state.active_room = RoomDTO(**{k: r[k] for k in RoomDTO.__dataclass_fields__})
             _stop_refresh()
             from client.views.room_view import room_view
             room_view(page, state)
 
         subtitle_parts = []
         if room_type != "personal":
-            subtitle_parts.append(f"{room['member_count']} участников")
+            subtitle_parts.append(t("chat_list.members_count", count=room["member_count"]))
         if room.get("is_private"):
-            subtitle_parts.append("Приватный")
-        
-        subtitle = " • ".join(subtitle_parts) if subtitle_parts else "Чат"
+            subtitle_parts.append(t("chat_list.private"))
+
+        subtitle = " • ".join(subtitle_parts) if subtitle_parts else t("chat_list.chat")
 
         return flet.Card(
             content=flet.Container(
@@ -267,12 +232,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
                         flet.Stack(
                             controls=[
                                 flet.CircleAvatar(
-                                    content=flet.Text(
-                                        name_initial,
-                                        color="#ffffff",
-                                        weight=flet.FontWeight.BOLD,
-                                        size=16,
-                                    ),
+                                    content=flet.Text(name_initial, color="#ffffff", weight=flet.FontWeight.BOLD, size=16),
                                     bgcolor="#008069",
                                 ),
                                 flet.Container(
@@ -289,17 +249,8 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
                         ),
                         flet.Column(
                             controls=[
-                                flet.Text(
-                                    display_name,
-                                    weight=flet.FontWeight.BOLD,
-                                    size=15,
-                                    color="#111b21",
-                                ),
-                                flet.Text(
-                                    subtitle,
-                                    size=12,
-                                    color="#667781",
-                                ),
+                                flet.Text(display_name, weight=flet.FontWeight.BOLD, size=15, color="#111b21"),
+                                flet.Text(subtitle, size=12, color="#667781"),
                             ],
                             expand=True,
                             spacing=2,
@@ -323,80 +274,61 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
 
     def _filter_chats(query: str) -> None:
         q = (query or "").lower()
-        
-        # Фильтрация личных чатов
-        filtered_personal = [
-            r for r in personal_chats 
-            if q in _get_chat_display_name(r).lower()
-        ] if q else personal_chats
-        
-        # Фильтрация групповых чатов
-        filtered_groups = [
-            r for r in group_chats 
-            if q in r["name"].lower()
-        ] if q else group_chats
-        
-        # Фильтрация публичных комнат
-        filtered_public = [
-            r for r in public_rooms 
-            if q in r["name"].lower()
-        ] if q else public_rooms
-        
-        # Обновление UI
+
+        filtered_personal = [r for r in personal_chats if q in _get_chat_display_name(r).lower()] if q else personal_chats
+        filtered_groups = [r for r in group_chats if q in r["name"].lower()] if q else group_chats
+        filtered_public = [r for r in public_rooms if q in r["name"].lower()] if q else public_rooms
+
         personal_column.controls.clear()
         for r in filtered_personal:
             personal_column.controls.append(_build_chat_tile(r))
         if not filtered_personal:
             personal_column.controls.append(
-                flet.Text("Нет личных чатов.", color="#667781", text_align=flet.TextAlign.CENTER)
+                flet.Text(t("chat_list.no_personal"), color="#667781", text_align=flet.TextAlign.CENTER)
             )
-        
+
         group_column.controls.clear()
         for r in filtered_groups:
             group_column.controls.append(_build_chat_tile(r))
         if not filtered_groups:
             group_column.controls.append(
-                flet.Text("Нет групповых чатов.", color="#667781", text_align=flet.TextAlign.CENTER)
+                flet.Text(t("chat_list.no_groups"), color="#667781", text_align=flet.TextAlign.CENTER)
             )
-        
+
         public_column.controls.clear()
         for r in filtered_public:
             public_column.controls.append(_build_chat_tile(r))
         if not filtered_public:
             public_column.controls.append(
-                flet.Text("Нет публичных комнат.", color="#667781", text_align=flet.TextAlign.CENTER)
+                flet.Text(t("chat_list.no_public"), color="#667781", text_align=flet.TextAlign.CENTER)
             )
-        
+
         page.update()
 
     async def _load_chats() -> None:
         nonlocal personal_chats, group_chats, public_rooms
-        status_text.value = "Загрузка чатов…"
+        status_text.value = t("chat_list.loading")
         page.update()
-        
+
         client = APIClient(base_url=API_URL, state=state)
         try:
-            # Define fetch functions for cache manager
             async def fetch_my_chats():
                 return await client.get_my_rooms()
-            
+
             async def fetch_public_rooms():
                 return await client.list_rooms()
-            
-            # Use cache manager to get data
+
             my_chats = await cache_manager.get("my_chats", fetch_my_chats)
             personal_chats = [r for r in my_chats if r.get("room_type") == "personal"]
             group_chats = [r for r in my_chats if r.get("room_type") == "group"]
-            
-            # Load public rooms from cache
             public_rooms = await cache_manager.get("public_rooms", fetch_public_rooms)
-            
+
             _filter_chats(search_field.value or "")
-            
+
             total = len(personal_chats) + len(group_chats) + len(public_rooms)
-            status_text.value = f"Загружено {total} чатов"
+            status_text.value = t("chat_list.loaded", total=total)
         except Exception as exc:
-            status_text.value = f"Ошибка загрузки: {exc}"
+            status_text.value = t("chat_list.error_loading", exc=exc)
         finally:
             page.update()
             await client.aclose()
@@ -414,10 +346,7 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         from client.views.profile_view import profile_view
         profile_view(page, state)
 
-    # Auto-refresh и уведомления
     _active = {"running": True}
-
-    # Stop any previous notification WS before starting a new one
     state.close_notif_ws()
 
     async def _auto_refresh() -> None:
@@ -430,59 +359,49 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
 
     def _on_notification(payload: dict) -> None:
         if payload.get("type") == "invite":
-            room_data = payload.get("payload", {})
-            room_name = room_data.get("name", "чат")
+            room_name = payload.get("payload", {}).get("name", "")
             page.snack_bar = flet.SnackBar(
-                flet.Text(f'Вас пригласили в "{room_name}"!', color="#ffffff"), 
-                open=True, 
-                bgcolor="#008069"
+                flet.Text(t("chat_list.invited", room=room_name), color="#ffffff"),
+                open=True, bgcolor="#008069",
             )
             page.update()
             page.run_task(_load_chats)
-
         elif payload.get("type") == "member_joined":
             data = payload.get("payload", {})
-            username = data.get("username", "Someone")
-            room_name = data.get("room_name", "group")
+            username = data.get("username", "")
+            room_name = data.get("room_name", "")
             page.snack_bar = flet.SnackBar(
-                flet.Text(f'{username} joined "{room_name}"', color="#ffffff"),
-                open=True,
-                bgcolor="#25d366",
+                flet.Text(t("chat_list.member_joined", username=username, room=room_name), color="#ffffff"),
+                open=True, bgcolor="#25d366",
             )
             page.update()
 
     async def _start_notifications() -> None:
-        # Close any existing notification client first
         state.close_notif_ws()
-        
-        nc = NotificationClient(
-            token=state.token or "", on_notification=_on_notification
-        )
+        nc = NotificationClient(token=state.token or "", on_notification=_on_notification)
         state.notif_ws = nc
         await nc.connect()
-    
+
     def _start_background_refresh() -> None:
-        """Register background refresh for all cache keys."""
         client = APIClient(base_url=API_URL, state=state)
-        
+
         async def fetch_my_chats():
             return await client.get_my_rooms()
-        
+
         async def fetch_public_rooms():
             return await client.list_rooms()
-        
+
         def on_my_chats_update(data):
             nonlocal personal_chats, group_chats
             personal_chats = [r for r in data if r.get("room_type") == "personal"]
             group_chats = [r for r in data if r.get("room_type") == "group"]
             _filter_chats(search_field.value or "")
-        
+
         def on_public_rooms_update(data):
             nonlocal public_rooms
             public_rooms = data
             _filter_chats(search_field.value or "")
-        
-        # Register background refresh for my chats and public rooms
+
         cache_manager.start_background_refresh("my_chats", fetch_my_chats, on_my_chats_update)
         cache_manager.start_background_refresh("public_rooms", fetch_public_rooms, on_public_rooms_update)
 
@@ -491,80 +410,13 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
         cache_manager.stop_background_refresh()
         state.close_notif_ws()
 
-    # Обработчик изменения вкладки
-    def _on_tab_change(e: flet.ControlEvent) -> None:
-        # Обновляем кнопки создания в зависимости от вкладки
-        _update_create_buttons()
-
-    def _update_create_buttons():
-        """Обновить кнопки создания в зависимости от активной вкладки"""
-        create_buttons.controls.clear()
-        
-        if tabs.selected_index == 0:  # Личные
-            create_buttons.controls.append(
-                flet.ElevatedButton(
-                    "Новый чат",
-                    icon=flet.Icons.PERSON_ADD,
-                    on_click=_open_personal_dialog,
-                    style=flet.ButtonStyle(
-                        bgcolor="#25d366",
-                        color="#ffffff",
-                        shape=flet.RoundedRectangleBorder(radius=20),
-                    ),
-                )
-            )
-        elif tabs.selected_index == 1:  # Группы
-            create_buttons.controls.append(
-                flet.ElevatedButton(
-                    "Новая группа",
-                    icon=flet.Icons.GROUP_ADD,
-                    on_click=_open_group_dialog,
-                    style=flet.ButtonStyle(
-                        bgcolor="#008069",
-                        color="#ffffff",
-                        shape=flet.RoundedRectangleBorder(radius=20),
-                    ),
-                )
-            )
-        
-        page.update()
-
-    # Контейнер для кнопок создания
-    create_buttons = flet.Row(
-        alignment=flet.MainAxisAlignment.CENTER,
-        controls=[]
-    )
-
-    tabs.on_change = _on_tab_change
-
-    # Верхняя панель
     top_bar = flet.Container(
         content=flet.Row(
             controls=[
-                flet.Text(
-                    "Чаты",
-                    size=22,
-                    weight=flet.FontWeight.BOLD,
-                    color="#ffffff",
-                    expand=True,
-                ),
-                flet.IconButton(
-                    icon=flet.Icons.REFRESH,
-                    on_click=lambda e: page.run_task(_load_chats),
-                    tooltip="Обновить",
-                    icon_color="#ffffff",
-                ),
-                flet.IconButton(
-                    icon=flet.Icons.PERSON,
-                    on_click=_go_profile,
-                    tooltip="Профиль",
-                    icon_color="#ffffff",
-                ),
-                flet.TextButton(
-                    "Выйти",
-                    on_click=do_logout,
-                    style=flet.ButtonStyle(color="#ffffff"),
-                ),
+                flet.Text(t("chat_list.title"), size=22, weight=flet.FontWeight.BOLD, color="#ffffff", expand=True),
+                flet.IconButton(icon=flet.Icons.REFRESH, on_click=lambda e: page.run_task(_load_chats), tooltip=t("chat_list.refresh"), icon_color="#ffffff"),
+                flet.IconButton(icon=flet.Icons.PERSON, on_click=_go_profile, tooltip=t("chat_list.profile"), icon_color="#ffffff"),
+                flet.TextButton(t("chat_list.logout"), on_click=do_logout, style=flet.ButtonStyle(color="#ffffff")),
             ],
             alignment=flet.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=flet.CrossAxisAlignment.CENTER,
@@ -582,22 +434,15 @@ def chat_list_view(page: flet.Page, state: AppState) -> None:
                     content=flet.Row(controls=[search_field]),
                     padding=flet.padding.symmetric(horizontal=16, vertical=8),
                 ),
-                flet.Container(
-                    content=status_text, 
-                    padding=flet.padding.symmetric(horizontal=16)
-                ),
-                flet.Container(
-                    content=create_buttons,
-                    padding=flet.padding.symmetric(horizontal=16, vertical=8),
-                ),
+                flet.Container(content=status_text, padding=flet.padding.symmetric(horizontal=16)),
+                flet.Container(content=create_buttons, padding=flet.padding.symmetric(horizontal=16, vertical=8)),
                 tabs,
             ],
             expand=True,
             spacing=0,
         )
     )
-    
-    # Установить начальные кнопки создания
+
     _update_create_buttons()
     page.update()
     page.run_task(_load_chats)

@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import flet
 
+from client.locale import set_locale
 from client.state import AppState
 from client.storage.settings import LocalStorage
 
@@ -31,6 +32,10 @@ def main(page: flet.Page) -> None:
 
     storage = LocalStorage(_SETTINGS_DIR)
     state = AppState(secure_storage=storage)
+
+    stored_locale = storage.get("settings.locale") or "ru"
+    set_locale(stored_locale)
+    logger.info("[main] locale: %r", stored_locale)
 
     stored_alignment = storage.get("settings.message_alignment")
     logger.info("[main] stored_alignment from file: %r", stored_alignment)

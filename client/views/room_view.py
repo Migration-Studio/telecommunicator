@@ -5,6 +5,7 @@ import flet
 from client.api.http_client import APIClient, AuthError
 from client.api.ws_client import WsClient
 from client.config import API_URL
+from client.locale import t
 from client.state import AppState
 
 
@@ -22,7 +23,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
     )
 
     message_input = flet.TextField(
-        label="Введите сообщение…",
+        label=t("room.message_hint"),
         expand=True,
         multiline=True,
         on_submit=lambda e: page.run_task(_send_message),
@@ -34,7 +35,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
 
     reconnecting_banner = flet.Container(
         content=flet.Text(
-            "Переподключение…",
+            t("room.reconnecting"),
             color="#ffffff",
             size=13,
             weight=flet.FontWeight.W_500,
@@ -62,7 +63,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
     async def _show_user_profile(username: str) -> None:
         _profile_sheet_content.controls.clear()
         _profile_sheet_content.controls.append(
-            flet.Text("Загрузка…", size=14, color="#667781")
+            flet.Text(t("room.loading"), size=14, color="#667781")
         )
         _profile_sheet.open = True
         page.update()
@@ -91,7 +92,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
                                 )
                                 if dn
                                 else flet.Text(
-                                    "No display name",
+                                    t("room.no_display_name"),
                                     size=14,
                                     color="#667781",
                                     italic=True,
@@ -108,7 +109,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
                     controls=[
                         flet.Icon(flet.Icons.BADGE, size=18, color="#667781"),
                         flet.Text(
-                            f"Имя пользователя: {data.get('username', '')}",
+                            t("room.username_label", username=data.get('username', '')),
                             size=14,
                             color="#111b21",
                         ),
@@ -119,13 +120,13 @@ def room_view(page: flet.Page, state: AppState) -> None:
                     controls=[
                         flet.Icon(flet.Icons.LABEL, size=18, color="#667781"),
                         flet.Text(
-                            f"Отображаемое имя: {dn or '—'}", size=14, color="#111b21"
+                            t("room.display_name_label", name=dn or "—"), size=14, color="#111b21"
                         ),
                     ],
                     spacing=8,
                 ),
                 flet.TextButton(
-                    "Закрыть",
+                    t("room.close"),
                     on_click=lambda e: _close_profile_sheet(),
                     style=flet.ButtonStyle(color="#008069"),
                 ),
@@ -308,7 +309,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         except AuthError:
             state.token = None
             page.snack_bar = flet.SnackBar(
-                flet.Text("Session expired", color="#ffffff"), open=True, bgcolor="#ea4335"
+                flet.Text(t("room.session_expired"), color="#ffffff"), open=True, bgcolor="#ea4335"
             )
             page.update()
             from client.views.login_view import login_view
@@ -462,7 +463,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
 
     # Диалог приглашения (только для групп)
     invite_username_field = flet.TextField(
-        label="Имя пользователя для приглашения", autofocus=True
+        label=t("room.invite_username"), autofocus=True
     )
     invite_error = flet.Text("", color="#ea4335", visible=False, size=12)
 
@@ -478,7 +479,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
             invite_dialog.open = False
             invite_username_field.value = ""
             page.snack_bar = flet.SnackBar(
-                flet.Text(f"{username} успешно приглашен", color="#ffffff"), 
+                flet.Text(t("room.invite_success", username=username), color="#ffffff"), 
                 open=True, 
                 bgcolor="#008069"
             )
@@ -491,17 +492,11 @@ def room_view(page: flet.Page, state: AppState) -> None:
             await client.aclose()
 
     invite_dialog = flet.AlertDialog(
-        title=flet.Text("Пригласить пользователя", weight=flet.FontWeight.BOLD, color="#111b21"),
-        content=flet.Column(
-            controls=[invite_username_field, invite_error], tight=True, spacing=8
-        ),
+        title=flet.Text(t("room.invite_user"), weight=flet.FontWeight.BOLD, color="#111b21"),
+        content=flet.Column(controls=[invite_username_field, invite_error], tight=True, spacing=8),
         actions=[
-            flet.TextButton("Отмена", on_click=lambda e: _close_invite_dialog(), style=flet.ButtonStyle(color="#008069")),
-            flet.ElevatedButton(
-                "Пригласить",
-                on_click=_do_invite,
-                style=flet.ButtonStyle(bgcolor="#008069", color="#ffffff"),
-            ),
+            flet.TextButton(t("room.cancel"), on_click=lambda e: _close_invite_dialog(), style=flet.ButtonStyle(color="#008069")),
+            flet.ElevatedButton(t("room.invite"), on_click=_do_invite, style=flet.ButtonStyle(bgcolor="#008069", color="#ffffff")),
         ],
     )
 
@@ -540,11 +535,11 @@ def room_view(page: flet.Page, state: AppState) -> None:
     # Подзаголовок в зависимости от типа чата
     def _get_subtitle() -> str:
         if is_personal:
-            return "Личный чат"
+            return t("room.personal_chat")
         elif room.room_type == "group":
-            return f"Группа • {room.member_count} участников"
+            return t("room.group_subtitle", count=room.member_count)
         else:
-            return f"Публичная комната • {room.member_count} участников"
+            return t("room.public_subtitle", count=room.member_count)
 
     subtitle = _get_subtitle()
 
@@ -552,7 +547,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         flet.IconButton(
             icon=flet.Icons.ARROW_BACK,
             on_click=_go_back,
-            tooltip="Назад",
+            tooltip=t("room.back"),
             icon_color="#ffffff",
         ),
         flet.Column(
@@ -579,7 +574,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
             flet.IconButton(
                 icon=flet.Icons.PERSON_ADD,
                 on_click=_open_invite_dialog,
-                tooltip="Invite user",
+                tooltip=t("room.invite_user"),
                 icon_color="#ffffff",
             )
         )
@@ -588,7 +583,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
             flet.IconButton(
                 icon=flet.Icons.SETTINGS,
                 on_click=_go_settings,
-                tooltip="Room settings",
+                tooltip=t("room.room_settings"),
                 icon_color="#ffffff",
             )
         )
@@ -622,7 +617,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
                                 icon=flet.Icons.SEND,
                                 on_click=lambda e: page.run_task(_send_message),
                                 icon_color="#008069",
-                                tooltip="Отправить",
+                                tooltip=t("room.send"),
                                 icon_size=24,
                             ),
                         ],
