@@ -46,7 +46,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         alignment=flet.alignment.Alignment(0, 0),
     )
 
-    _state: dict = {"min_id": None, "loading_older": False, "ws_client": None, "user_at_bottom": True}
+    _state: dict = {"min_id": None, "loading_older": False, "ws_client": None, "user_at_bottom": True, "messages_data": []}
 
     # User profile bottom sheet
     _profile_sheet_content = flet.Column(tight=True, spacing=8, width=320)
@@ -157,7 +157,16 @@ def room_view(page: flet.Page, state: AppState) -> None:
             state.current_user is not None
             and author == state.current_user.username
         )
-        bubble_color = "#d9fdd3" if is_me else "#ffffff"
+
+        alignment = state.message_alignment
+        if alignment == "right":
+            on_right = True
+        elif alignment == "left":
+            on_right = False
+        else:
+            on_right = is_me  # default: mine on right, others on left
+
+        bubble_color = "#d9fdd3" if on_right else "#ffffff"
         name_color = "#008069"
 
         bubble = flet.Container(
@@ -195,18 +204,19 @@ def room_view(page: flet.Page, state: AppState) -> None:
             border_radius=flet.border_radius.only(
                 top_left=12,
                 top_right=12,
-                bottom_left=4 if is_me else 12,
-                bottom_right=12 if is_me else 4,
+                bottom_left=4 if on_right else 12,
+                bottom_right=12 if on_right else 4,
             ),
             padding=flet.padding.symmetric(horizontal=12, vertical=6),
-            border=flet.Border.all(1, "#e0e0e0") if not is_me else None,
+            border=flet.Border.all(1, "#e0e0e0") if not on_right else None,
             animate_scale=flet.Animation(200, flet.AnimationCurve.EASE_OUT),
             animate_opacity=flet.Animation(200, flet.AnimationCurve.EASE_OUT),
         )
 
         msg_id = msg.get("id")
         spacer = flet.Container(expand=True)
-        if is_me:
+
+        if on_right:
             return flet.Row(
                 key=str(msg_id) if msg_id else None,
                 controls=[spacer, bubble],
@@ -265,7 +275,8 @@ def room_view(page: flet.Page, state: AppState) -> None:
             
             user_at_bottom = _is_user_at_bottom()
             print(f"[WS] User at bottom: {user_at_bottom}")
-            
+
+            _state["messages_data"].append(msg)
             message_control = _build_message_tile(msg)
             messages_list.controls.append(message_control)
             print(f"[WS] Added message to list, total messages: {len(messages_list.controls)}")
@@ -332,6 +343,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
         
         if msgs_sorted:
             _state["min_id"] = msgs_sorted[0]["id"]
+            _state["messages_data"] = msgs_sorted
             for m in msgs_sorted:
                 messages_list.controls.append(_build_message_tile(m))
             print(f"[INIT] Added {len(msgs_sorted)} messages to UI")
@@ -353,7 +365,8 @@ def room_view(page: flet.Page, state: AppState) -> None:
             msgs_sorted = sorted(msgs, key=lambda m: m["id"])
             _state["min_id"] = msgs_sorted[0]["id"]
             new_tiles = [_build_message_tile(m) for m in msgs_sorted]
-            # Insert older messages at the top
+            # Insert older messages at the top (data too)
+            _state["messages_data"] = msgs_sorted + _state["messages_data"]
             messages_list.controls = new_tiles + messages_list.controls
             page.update()
             # Scroll to the first of the previously visible messages to keep reading position
@@ -410,6 +423,15 @@ def room_view(page: flet.Page, state: AppState) -> None:
 
     messages_list.on_scroll = _on_scroll
 
+    def _rebuild_messages(_alignment: str) -> None:
+        """Rebuild all message tiles when alignment setting changes."""
+        messages_list.controls.clear()
+        for m in _state.get("messages_data", []):
+            messages_list.controls.append(_build_message_tile(m))
+        page.update()
+
+    state.on_alignment_change = _rebuild_messages
+
     async def _start_ws() -> None:
         # Close any existing room WebSocket before opening a new one
         state.close_room_ws()
@@ -426,6 +448,7 @@ def room_view(page: flet.Page, state: AppState) -> None:
 
     def _go_back(e: flet.ControlEvent) -> None:
         state.close_room_ws()
+        state.on_alignment_change = None
         _state["ws_client"] = None
         state.active_room = None
         from client.views.chat_list_view import chat_list_view

@@ -114,6 +114,54 @@ def profile_view(page: flet.Page, state: AppState) -> None:
 
         chat_list_view(page, state)
 
+    # --- Message alignment setting ---
+    _alignment_options = [
+        ("По умолчанию (мои справа, чужие слева)", "default"),
+        ("Все слева", "left"),
+        ("Все справа", "right"),
+    ]
+    alignment_dropdown = flet.Dropdown(
+        value=state.message_alignment,
+        options=[flet.dropdown.Option(key=v, text=label) for label, v in _alignment_options],
+        expand=True,
+        bgcolor="#ffffff",
+        border_color="#e0e0e0",
+    )
+
+    def _on_alignment_change(e: flet.ControlEvent) -> None:
+        import logging
+        log = logging.getLogger(__name__)
+        new_val = alignment_dropdown.value or "default"
+        log.info("[profile_view] Dropdown changed to %r", new_val)
+        state.message_alignment = new_val
+        log.info("[profile_view] state.message_alignment is now %r", state.message_alignment)
+        if state.secure_storage is not None:
+            state.secure_storage.set("settings.message_alignment", state.message_alignment)
+            log.info("[profile_view] Saved to secure_storage")
+        else:
+            log.warning("[profile_view] secure_storage is None — not saved!")
+        page.snack_bar = flet.SnackBar(
+            flet.Text("Настройка сохранена", color="#ffffff"), open=True, bgcolor="#008069"
+        )
+        page.update()
+
+    alignment_dropdown.on_change = _on_alignment_change
+
+    def _save_alignment(e: flet.ControlEvent) -> None:
+        """Explicit save button — fallback if on_change doesn't fire."""
+        import logging
+        log = logging.getLogger(__name__)
+        new_val = alignment_dropdown.value or "default"
+        log.info("[profile_view] Save button clicked, value=%r", new_val)
+        state.message_alignment = new_val
+        if state.secure_storage is not None:
+            state.secure_storage.set("settings.message_alignment", new_val)
+            log.info("[profile_view] Saved via button to secure_storage")
+        page.snack_bar = flet.SnackBar(
+            flet.Text("Настройка сохранена", color="#ffffff"), open=True, bgcolor="#008069"
+        )
+        page.update()
+
     page.controls.clear()
     page.add(
         flet.Column(
@@ -266,6 +314,36 @@ def profile_view(page: flet.Page, state: AppState) -> None:
                                                     padding=flet.padding.symmetric(
                                                         vertical=12, horizontal=24
                                                     ),
+                                                ),
+                                            ),
+                                        ],
+                                        spacing=12,
+                                    ),
+                                    padding=20,
+                                ),
+                                bgcolor="#ffffff",
+                                elevation=1,
+                            ),
+                            flet.Card(
+                                content=flet.Container(
+                                    content=flet.Column(
+                                        controls=[
+                                            flet.Text(
+                                                "Выравнивание сообщений",
+                                                size=16,
+                                                weight=flet.FontWeight.W_600,
+                                                color="#111b21",
+                                            ),
+                                            flet.Divider(height=8),
+                                            flet.Row(controls=[alignment_dropdown]),
+                                            flet.ElevatedButton(
+                                                "Сохранить",
+                                                on_click=_save_alignment,
+                                                style=flet.ButtonStyle(
+                                                    bgcolor="#008069",
+                                                    color="#ffffff",
+                                                    shape=flet.RoundedRectangleBorder(radius=8),
+                                                    padding=flet.padding.symmetric(vertical=12, horizontal=24),
                                                 ),
                                             ),
                                         ],

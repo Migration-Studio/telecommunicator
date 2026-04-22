@@ -10,6 +10,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import flet
 
 from client.state import AppState
+from client.storage.settings import LocalStorage
+
+import logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+_SETTINGS_DIR = os.path.join(os.path.dirname(__file__), "storage", "data")
 
 
 def main(page: flet.Page) -> None:
@@ -19,7 +29,14 @@ def main(page: flet.Page) -> None:
     page.theme = flet.Theme(color_scheme_seed="#008069", font_family="RobotoFlex")
     page.padding = 0
 
-    state = AppState()
+    storage = LocalStorage(_SETTINGS_DIR)
+    state = AppState(secure_storage=storage)
+
+    stored_alignment = storage.get("settings.message_alignment")
+    logger.info("[main] stored_alignment from file: %r", stored_alignment)
+    if stored_alignment in ("default", "left", "right"):
+        state.message_alignment = stored_alignment
+        logger.info("[main] Applied stored alignment: %r", stored_alignment)
 
     from client.views.login_view import login_view
     login_view(page, state)
